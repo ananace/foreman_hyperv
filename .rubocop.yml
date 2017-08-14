@@ -1,0 +1,22 @@
+inherit_from:
+  - .rubocop_todo.yml
+
+Rails:
+  Enabled: true # always run the rails cops
+
+# Don't enforce documentation
+Style/Documentation:
+  Enabled: false
+
+Style/HashSyntax:
+  Enabled: false
+  SupportedStyles:
+    - ruby19
+    - hash_rockets
+
+# Force before_filter until upgrade to Rails 4
+Rails/ActionFilter:
+  EnforcedStyle: filter
+
+Metrics/MethodLength:
+  Max: 20
