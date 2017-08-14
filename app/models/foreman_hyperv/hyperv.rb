@@ -30,6 +30,21 @@ module ForemanHyperv
     end
 
     def create_vm(args = {})
+      args[:boot_device] = :NetworkAdapter
+      args[:memory_startup] = (args.delete(:memory_mb) || 0).to_i * 1024 * 1024
+      args[:dynamic_memory_enabled] = ActiveRecord::Type::Boolean.new.type_cast_from_user(args.delete(:dynamic_memory_enabled) || '0')
+      args[:no_vhd] = ActiveRecord::Type::Boolean.new.type_cast_from_user(args.delete(:no_vhd) || '0')
+
+      vm = super args
+
+      vm.attributes.merge!(
+        processor_count: args[:processor_count].to_i,
+      )
+      vm.save
+    end
+
+    def switches
+      client.switches
     end
 
     protected

@@ -4,6 +4,8 @@ module FogExtensions
       extend ActiveSupport::Concern
       include ActionView::Helpers::NumberHelper
 
+      attr_accessor :no_vhd, :new_vhd_path, :new_vhd_size_bytes
+
       def to_s
         name
       end
@@ -17,11 +19,15 @@ module FogExtensions
       end
 
       def memory
-        if dynamic_memory_enabled
-          memory_assigned
-        else
-          memory_startup
-        end
+        memory_startup
+      end
+
+      def memory_mb
+        (memory_startup || 0) / 1024 / 1024
+      end
+
+      def memory_mb=(mem)
+        memory_startup = (mem.to_i * 1024 * 1024)
       end
 
       def reset
@@ -39,10 +45,6 @@ module FogExtensions
 
       def method_missing(name, *args)
         puts "Missing method; #{name}(#{args.join ', '})"
-      end
-
-      def respond_to?(*args)
-        true
       end
     end
   end
