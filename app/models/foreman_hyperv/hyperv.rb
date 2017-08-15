@@ -58,7 +58,7 @@ module ForemanHyperv
       end
 
       vm.save if vm.dirty?
-      vm.start if ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:start])
+      vm.start if ActiveRecord::Type::Boolean.new.type_cast_from_user '1' # args[:start]
       vm
     rescue
       vm.destroy if vm.id
@@ -70,6 +70,18 @@ module ForemanHyperv
         vm.send("#{k}=".to_sym, v)
       end
       vm.save
+    end
+
+    def destroy_vm(uuid)
+      vm = find_vm_by_uuid(uuid)
+      vm.hard_drives.each do |hd|
+        # TODO; Be cleaner about this?
+        client.remove_item path: hd.path
+      end
+      vm.destroy
+    rescue ActiveRecord::RecordNotFound
+      # if the VM does not exists, we don't really care.
+      true
     end
 
     def switches
