@@ -4,10 +4,12 @@ module FogExtensions
       extend ActiveSupport::Concern
       include ActionView::Helpers::NumberHelper
 
-      attr_accessor :no_vhd, :new_vhd_path, :new_vhd_size_bytes
-
       def to_s
         name
+      end
+
+      def dynamic_memory_enabled=(value)
+        attributes[:dynamic_memory_enabled] = ActiveRecord::Type::Boolean.new.type_cast_from_user value
       end
 
       def mac(m = mac_addresses.first)
@@ -18,16 +20,12 @@ module FogExtensions
         network_adapters.map { |n| mac(n.mac_address) }
       end
 
+      def interfaces
+        network_adapters
+      end
+
       def memory
         memory_startup
-      end
-
-      def memory_mb
-        (memory_startup || 0) / 1024 / 1024
-      end
-
-      def memory_mb=(mem)
-        memory_startup = (mem.to_i * 1024 * 1024)
       end
 
       def reset

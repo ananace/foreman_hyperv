@@ -22,7 +22,7 @@ module ForemanHyperv
     end
 
     def provided_attributes
-      super.merge(mac: :mac, ip: :public_ip_address)
+      super.merge(mac: :mac)
     end
 
     def associated_host(vm)
@@ -30,21 +30,54 @@ module ForemanHyperv
     end
 
     def create_vm(args = {})
-      args[:boot_device] = :NetworkAdapter
-      args[:memory_startup] = (args.delete(:memory_mb) || 0).to_i * 1024 * 1024
-      args[:dynamic_memory_enabled] = ActiveRecord::Type::Boolean.new.type_cast_from_user(args.delete(:dynamic_memory_enabled) || '0')
-      args[:no_vhd] = ActiveRecord::Type::Boolean.new.type_cast_from_user(args.delete(:no_vhd) || '0')
+      pre_create = {
+        boot_device: 'NetworkAdapter',
+        dynamic_memory_enabled: ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:dynamic_memory_enabled]),
+        generation: args[:generation].to_i,
+        memory_startup: args[:memory_startup].presence,
+        name: args[:name],
+        new_vhd_path: args[:new_vhd_path].presence,
+        new_vhd_size_bytes: args[:new_vhd_size_bytes].presence,
+        no_vhd: ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:no_vhd]),
+        switch_name: args[:switch_name].presence
+      }
 
-      vm = super args
+      # TODO;
+      # Create with no VHD, no switch
+      # Use volume + interface data to add after creation of VM
 
-      vm.attributes.merge!(
+      vm = client.servers.create pre_create
+
+      post_save = {
+        dynamic_memory_enabled: ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:dynamic_memory_enabled]),
+        notes: args[:notes].presence,
         processor_count: args[:processor_count].to_i,
-      )
+      }
+      post_save.each do |k, v|
+        vm.send("#{k}=".to_sym, v)
+      end
+
+      vm.save if vm.dirty?
+      vm.start if ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:start])
+      vm
+    rescue
+      vm.destroy if vm.id
+    end
+
+    def save_vm(uuid, attr)
+      vm = find_vm_by_uuid(uuid)
+      attr.each do |k, v|
+        vm.send("#{k}=".to_sym, v)
+      end
       vm.save
     end
 
     def switches
-      client.switches
+      client.switches.all _quick_query: true
+    end
+
+    def supports_update?
+      true
     end
 
     protected

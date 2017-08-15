@@ -16,6 +16,11 @@ module ForemanHyperv
       require File.expand_path(
         '../../../app/models/concerns/fog_extensions/hyperv/server', __FILE__)
       Fog::Compute::Hyperv::Server.send(:include, FogExtensions::Hyperv::Server)
+
+      require 'fog/hyperv/models/compute/network_adapter'
+      require File.expand_path(
+        '../../../app/models/concerns/fog_extensions/hyperv/network_adapter', __FILE__)
+      Fog::Compute::Hyperv::NetworkAdapter.send(:include, FogExtensions::Hyperv::NetworkAdapter)
     end
   end
 end
