@@ -58,7 +58,17 @@ module ForemanHyperv
       end
 
       vm.save if vm.dirty?
-      vm.start if ActiveRecord::Type::Boolean.new.type_cast_from_user '1' # args[:start]
+
+      # Populate the MAC address
+      vm.start
+      vm.stop turn_off: true
+      
+      vm.network_adapters.each do |nic|
+        nic.dynamic_mac_address_enabled = false
+        nic.save
+      end
+      
+      vm.start unless ActiveRecord::Type::Boolean.new.type_cast_from_user args[:start]
       vm
     rescue
       vm.destroy if vm.id
@@ -69,11 +79,13 @@ module ForemanHyperv
       attr.each do |k, v|
         vm.send("#{k}=".to_sym, v)
       end
-      vm.save
+      vm.save if vm.dirty?
+      vm
     end
 
     def destroy_vm(uuid)
       vm = find_vm_by_uuid(uuid)
+      vm.stop turn_off: true
       vm.hard_drives.each do |hd|
         # TODO; Be cleaner about this?
         client.remove_item path: hd.path

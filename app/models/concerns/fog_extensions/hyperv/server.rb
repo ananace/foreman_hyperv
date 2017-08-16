@@ -21,7 +21,7 @@ module FogExtensions
       end
 
       def interfaces
-        network_adapters
+        self.network_adapters
       end
 
       def memory
