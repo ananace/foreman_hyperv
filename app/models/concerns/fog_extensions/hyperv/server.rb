@@ -21,7 +21,21 @@ module FogExtensions
       end
 
       def interfaces
-        self.network_adapters
+        network_adapters
+      end
+
+      def volumes
+        vhds
+      end
+
+      def interfaces_attributes=(attributes)
+        puts "interfaces_attributes=(#{attributes})"
+        true
+      end
+
+      def volumes_attributes=(attributes)
+        puts "volumes_attributes=(#{attributes})"
+        true
       end
 
       def memory
@@ -42,7 +56,7 @@ module FogExtensions
       end
 
       def method_missing(name, *args)
-        puts "Missing method; #{name}(#{args.join ', '})"
+        puts "[VM] Missing method; #{name}(#{args.join ', '})"
       end
     end
   end

@@ -8,18 +8,8 @@
 <%= checkbox_f f, :dynamic_memory_enabled, label: _('Use Dynamic Memory')  %>
 
 <% if new_host %>
-<%= checkbox_f f, :no_vhd, label: _('Attach a VHD later') %>
-<%= text_f f, :new_vhd_path, label: _('VHD name'), placeholder: 'disk01.vhdx' %>
-<%= byte_size_f f, :new_vhd_size_bytes, label: _('New VHD size'), placeholder: '64GB' %>
-
-<!-- Move to interfaces tab? -->
-<%
-    switches = compute_resource.switches.map { |s| [s.name, s.name] }
-%>
-<%= select_f f, :switch_name, switches, :first, :last, {include_blank: true}, label: _('Network switch'), class: 'col-md-2' %>
-
 <% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
-<%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine (TODO; allow disabling, MAC troubles)"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
+<%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
 <% end %>
 
-<%= textarea_f f, :notes, class: 'col-md-8', rows: '3' %>
+<%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
