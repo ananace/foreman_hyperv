@@ -25,6 +25,15 @@ module ForemanHyperv
       super.merge(mac: :mac)
     end
 
+    # TODO
+    def max_cpu_count
+      24
+    end
+
+    def max_memory
+      32.gigabytes
+    end
+
     def associated_host(vm)
       associate_by('mac', vm.clean_mac_addresses)
     end
@@ -124,7 +133,7 @@ module ForemanHyperv
     end
 
     def networks
-      switches
+      switches.map { |sw| sw.name }
     end
 
     def switches
