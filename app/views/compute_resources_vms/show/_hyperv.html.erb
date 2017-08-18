@@ -8,7 +8,11 @@
     <tbody>
       <%= prop :id %>
       <%#= prop :cluster %>
-      <%= prop :memory %>
+      <%= prop :memory_startup %>
+      <% if @vm.dynamic_memory_enabled %>
+        <%= prop :memory_minimum %>
+        <%= prop :memory_maximum %>
+      <% end %>
       <%= prop :public_ip_address %>
       <%= prop :mac %>
       <%= prop :processor_count %>

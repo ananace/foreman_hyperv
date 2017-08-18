@@ -1,7 +1,7 @@
 <%
-  switches = compute_resource.switches
+  networks = compute_resource.switches
 %>
 <%= text_f f, :name, :label => _('Name'), :label_size => 'col-md-3' %>
-<%= selectable_f f, :switch_name, switches.map(&:name),
-                 { include_blank: switches.any? ? true : _('No network switches') },
+<%= select_f f, :network, networks, :name, :name,
+                 { include_blank: true },
                  { label: _('Network switch'), :label_size => 'col-md-3' } %>

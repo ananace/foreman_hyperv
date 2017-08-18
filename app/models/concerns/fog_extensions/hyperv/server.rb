@@ -4,16 +4,14 @@ module FogExtensions
       extend ActiveSupport::Concern
       include ActionView::Helpers::NumberHelper
 
+      attr_accessor :start
+
       def to_s
         name
       end
 
       def folder_name
         name.gsub(/[^0-9A-Za-z.\-]/, '_')
-      end
-
-      def dynamic_memory_enabled=(value)
-        attributes[:dynamic_memory_enabled] = ActiveRecord::Type::Boolean.new.type_cast_from_user value
       end
 
       def mac(m = mac_addresses.first)
@@ -32,29 +30,29 @@ module FogExtensions
         vhds
       end
 
-      def interfaces_attributes=(attributes)
-        puts "interfaces_attributes=(#{attributes})"
-        true
-      end
+      def interfaces_attributes=(_attributes); end
 
-      def volumes_attributes=(attributes)
-        puts "volumes_attributes=(#{attributes})"
-        true
-      end
-
-      def memory
-        memory_startup
-      end
+      def volumes_attributes=(_attributes); end
 
       def reset
-        restart
+        restart(force: true)
+      end
+
+      def stop
+        requires :name, :computer_name
+        service.stop_vm options.merge(
+          name: name,
+          computer_name: computer_name,
+          force: true
+        )
       end
 
       def vm_description
-        format(_('%{cpus} CPUs and %{ram} memory'), :cpus => processor_count, :ram => number_to_human_size(memory))
+        format(_('%{cpus} CPUs and %{ram} memory'), :cpus => processor_count, :ram => number_to_human_size(memory_startup))
       end
 
       def select_nic(fog_nics, nic)
+        puts "select_nic(#{fog_nics}, #{nic})"
         nic_attrs = nic.compute_attributes
         match =   fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
         match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['switch_name'] } # Fall back to any on the same switch

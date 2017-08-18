@@ -47,14 +47,6 @@ module ForemanHyperv
       vm
     end
 
-    def new_interface(attr = {})
-      Fog::Compute::Hyperv::NetworkAdapter.new(attr)
-    end
-
-    def new_volume(attr = {})
-      Fog::Compute::Hyperv::Vhd.new(attr)
-    end
-
     def stop_vm(uuid)
       find_vm_by_uuid(uuid).stop force: true
     end
@@ -100,6 +92,7 @@ module ForemanHyperv
 
     def save_vm(uuid, attr)
       vm = find_vm_by_uuid(uuid)
+      puts "Creating a VM with arguments; #{attr}"
       attr.each do |k, v|
         vm.send("#{k}=".to_sym, v)
       end
@@ -117,28 +110,29 @@ module ForemanHyperv
       end
       # TODO: Remove the empty VM folder
       vm.destroy
+    rescue Fog::Hyperv::Errors::PSError => e
+      # Ignore error if machine doesn't exist
+      raise e unless e.stderr.include? 'unable to find'
+      true
     rescue ActiveRecord::RecordNotFound
       # if the VM does not exists, we don't really care.
       true
     end
 
     def new_interface(attr = {})
-      puts "new_interface(#{attr})"
       client.network_adapters.new attr
     end
 
     def new_volume(attr = {})
-      puts "new_volume(#{attr})"
       client.vhds.new attr
     end
 
     def new_cdrom(attr = {})
-      puts "new_cdrom(#{attr})"
       client.dvd_drives.new attr
     end
 
-    def networks
-      switches.map(&:name)
+    def editable_network_interfaces?
+      true
     end
 
     def switches
@@ -176,7 +170,7 @@ module ForemanHyperv
       interfaces = nested_attributes_for :interfaces, attrs
       puts "Building interfaces with: #{interfaces}"
       interfaces.each do |iface|
-        nic = vm.network_adapters.create name: iface[:name], switch_name: iface[:switch]
+        nic = vm.network_adapters.create name: iface[:name], switch_name: iface[:network]
         if iface[:mac]
           nic.mac = iface[:mac]
           nic.dynamic_mac_address_enabled = false
