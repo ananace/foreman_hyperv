@@ -41,7 +41,7 @@ module ForemanHyperv
     def new_vm(attr = {})
       vm = super
       interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
-      interfaces.map{ |i| vm.interfaces << new_interface(i)}
+      interfaces.map { |i| vm.interfaces << new_interface(i) }
       volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
       volumes.map { |v| vm.volumes << new_volume(v) }
       vm
@@ -88,6 +88,14 @@ module ForemanHyperv
 
       vm.start unless ActiveRecord::Type::Boolean.new.type_cast_from_user args[:start]
       vm
+    rescue StandardError => e
+      vm.stop turn_off: true if vm.ready?
+      vm.hard_drives.each do |hd|
+        hd.vhd.destroy if hd.path
+      end
+      vm.destroy
+
+      raise e
     end
 
     def save_vm(uuid, attr)
@@ -107,6 +115,7 @@ module ForemanHyperv
       vm.hard_drives.each do |hd|
         hd.vhd.destroy if hd.path
       end
+      # TODO: Remove the empty VM folder
       vm.destroy
     rescue ActiveRecord::RecordNotFound
       # if the VM does not exists, we don't really care.
@@ -115,7 +124,7 @@ module ForemanHyperv
 
     def new_interface(attr = {})
       puts "new_interface(#{attr})"
-      client.network_adapter.new attr
+      client.network_adapters.new attr
     end
 
     def new_volume(attr = {})
@@ -128,12 +137,8 @@ module ForemanHyperv
       client.dvd_drives.new attr
     end
 
-    def editable_network_interfaces?
-      true
-    end
-
     def networks
-      switches.map { |sw| sw.name }
+      switches.map(&:name)
     end
 
     def switches
@@ -156,12 +161,22 @@ module ForemanHyperv
       )
     end
 
+    def vm_instance_defaults
+      super.merge(
+        generation:      1,
+        memory_startup:  512.megabytes,
+        processor_count: 1,
+        boot_device:     'NetworkAdapter'
+      )
+    end
+
     def create_interfaces(vm, attrs)
+      vm.network_adapters.each(&:destroy)
+
       interfaces = nested_attributes_for :interfaces, attrs
       puts "Building interfaces with: #{interfaces}"
-      interfaces.each_with_index do |iface, i|
-        nic = vm.network_adapters[i] || vm.network_adapters.new
-        nic.switch_name = iface[:switch_name]
+      interfaces.each do |iface|
+        nic = vm.network_adapters.create name: iface[:name], switch_name: iface[:switch]
         if iface[:mac]
           nic.mac = iface[:mac]
           nic.dynamic_mac_address_enabled = false
@@ -184,7 +199,7 @@ module ForemanHyperv
       volumes = nested_attributes_for :volumes, attrs
       puts "Building volumes with: #{volumes}"
       volumes.each do |vol|
-        vhd = vm.vhds.create path: vol[:path], size: vol[:size]
+        vhd = vm.vhds.create path: vm.folder_name + '\\' + vol[:path], size: vol[:size]
         vm.hard_drives.create path: vhd.path
       end
       vm.hard_drives.reload

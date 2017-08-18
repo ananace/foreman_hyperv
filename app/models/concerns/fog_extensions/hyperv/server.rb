@@ -8,6 +8,10 @@ module FogExtensions
         name
       end
 
+      def folder_name
+        name.gsub(/[^0-9A-Za-z.\-]/, '_')
+      end
+
       def dynamic_memory_enabled=(value)
         attributes[:dynamic_memory_enabled] = ActiveRecord::Type::Boolean.new.type_cast_from_user value
       end
@@ -50,9 +54,11 @@ module FogExtensions
         format(_('%{cpus} CPUs and %{ram} memory'), :cpus => processor_count, :ram => number_to_human_size(memory))
       end
 
-      def select_nic(fog_nics, _nic)
-        # TODO?
-        fog_nics[0]
+      def select_nic(fog_nics, nic)
+        nic_attrs = nic.compute_attributes
+        match =   fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
+        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['switch_name'] } # Fall back to any on the same switch
+        match
       end
 
       def method_missing(name, *args)
