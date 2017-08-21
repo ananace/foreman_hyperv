@@ -52,10 +52,10 @@ module FogExtensions
       end
 
       def select_nic(fog_nics, nic)
-        puts "select_nic(#{fog_nics}, #{nic})"
         nic_attrs = nic.compute_attributes
+        puts "select_nic(#{fog_nics}, #{nic}[#{nic_attrs}])"
         match =   fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
-        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['switch_name'] } # Fall back to any on the same switch
+        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['network'] } # Fall back to any on the same switch
         match
       end
 
