@@ -1,6 +1,6 @@
 <%
     networks = compute_resource.switches.map do |sw|
-      [ sw.name, "#{sw.name} (#{sw.switch_type})" ]
+      [ sw.name, "#{sw.name}#{sw.switch_type ? " (#{sw.switch_type})" : nil}" ]
     end
 %>
 <%= text_f f, :name, :label => _('Name'), :label_size => 'col-md-3' %>

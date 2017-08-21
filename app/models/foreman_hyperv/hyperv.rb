@@ -136,7 +136,7 @@ module ForemanHyperv
     end
 
     def switches
-      client.switches.all _quick_query: true
+      client.switches.all # _quick_query: true
     end
 
     def supports_update?
