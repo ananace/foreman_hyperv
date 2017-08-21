@@ -1,7 +1,9 @@
 <%
-  networks = compute_resource.switches
+    networks = compute_resource.switches.map do |sw|
+      [ sw.name, "#{sw.name} (#{sw.switch_type})" ]
+    end
 %>
 <%= text_f f, :name, :label => _('Name'), :label_size => 'col-md-3' %>
-<%= select_f f, :network, networks, :name, :name,
-                 { include_blank: true },
-                 { label: _('Network switch'), :label_size => 'col-md-3' } %>
+<%= select_f f, :network, networks, :first, :last,
+                { include_blank: true },
+                { label: _('Network switch'), :label_size => 'col-md-3' } %>

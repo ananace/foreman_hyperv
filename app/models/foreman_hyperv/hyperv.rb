@@ -27,11 +27,11 @@ module ForemanHyperv
 
     # TODO
     def max_cpu_count
-      24
+      hypervisor.logical_processor_count
     end
 
     def max_memory
-      32.gigabytes
+      hypervisor.memory_capacity
     end
 
     def associated_host(vm)
@@ -141,6 +141,15 @@ module ForemanHyperv
 
     def supports_update?
       true
+    end
+
+
+    def available_hypervisors
+      client.hosts
+    end
+
+    def hypervisor
+      client.hosts.first
     end
 
     protected
