@@ -9,6 +9,10 @@ module ForemanHyperv
       end
     end
 
+    initializer 'foreman_hyperv.assets.precompile' do |app|
+      app.config.assets.precompile += %w(compute_resources/hyperv/base.js)
+    end
+
     config.to_prepare do
       require 'fog/hyperv'
 
