@@ -4,7 +4,7 @@
 <%
   generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]
 %>
-<%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host %>
+<%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange()'  %>
 <%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot') }, 'true', 'false' %>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
