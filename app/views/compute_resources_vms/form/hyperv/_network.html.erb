@@ -7,3 +7,4 @@
 <%= select_f f, :network, networks, :first, :last,
                 { include_blank: true },
                 { label: _('Network switch'), :label_size => 'col-md-3' } %>
+<%= f.hidden_field :id %>

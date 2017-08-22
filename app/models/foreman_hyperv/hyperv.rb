@@ -53,7 +53,7 @@ module ForemanHyperv
 
     def create_vm(args = {})
       args = vm_instance_defaults.merge(args.to_hash.deep_symbolize_keys)
-      puts "Creating a VM with arguments; #{args}"
+      logger.debug "Creating a VM with arguments; #{args}"
       pre_create = {
         boot_device: 'NetworkAdapter',
         generation: args[:generation].to_i,
@@ -92,7 +92,7 @@ module ForemanHyperv
 
     def save_vm(uuid, attr)
       vm = find_vm_by_uuid(uuid)
-      puts "Creating a VM with arguments; #{attr}"
+      logger.debug "Saving a VM with arguments; #{attr}"
       attr.each do |k, v|
         vm.send("#{k}=".to_sym, v)
       end
@@ -110,11 +110,7 @@ module ForemanHyperv
       end
       # TODO: Remove the empty VM folder
       vm.destroy
-    rescue Fog::Hyperv::Errors::PSError => e
-      # Ignore error if machine doesn't exist
-      raise e unless e.stderr.include? 'unable to find'
-      true
-    rescue ActiveRecord::RecordNotFound
+    rescue ActiveRecord::RecordNotFound, Fog::Errors::NotFound
       # if the VM does not exists, we don't really care.
       true
     end
@@ -143,7 +139,6 @@ module ForemanHyperv
       true
     end
 
-
     def available_hypervisors
       client.hosts
     end
@@ -159,8 +154,7 @@ module ForemanHyperv
         provider: :HyperV,
         hyperv_endpoint: url,
         hyperv_username: user,
-        hyperv_password: password,
-        hyperv_debug: true
+        hyperv_password: password
       )
     end
 
@@ -177,7 +171,7 @@ module ForemanHyperv
       vm.network_adapters.each(&:destroy)
 
       interfaces = nested_attributes_for :interfaces, attrs
-      puts "Building interfaces with: #{interfaces}"
+      logger.debug "Building interfaces with: #{interfaces}"
       interfaces.each do |iface|
         nic = vm.network_adapters.create name: iface[:name], switch_name: iface[:network]
         if iface[:mac]
@@ -200,7 +194,7 @@ module ForemanHyperv
 
     def create_volumes(vm, attrs)
       volumes = nested_attributes_for :volumes, attrs
-      puts "Building volumes with: #{volumes}"
+      logger.debug "Building volumes with: #{volumes}"
       volumes.each do |vol|
         vhd = vm.vhds.create path: vm.folder_name + '\\' + vol[:path], size: vol[:size]
         vm.hard_drives.create path: vhd.path
@@ -210,6 +204,7 @@ module ForemanHyperv
 
     def update_interfaces(vm, attrs)
       interfaces = nested_attributes_for :interfaces, attrs
+      logger.debug "Updating interfaces with: #{interfaces}"
       interfaces.each do |interface|
         if interface[:id].blank? && interface[:_delete] != '1'
           nic = vm.network_adapters.create interface
@@ -231,6 +226,7 @@ module ForemanHyperv
 
     def update_volumes(vm, attrs)
       volumes = nested_attributes_for :volumes, attrs
+      logger.debug "Updating volumes with: #{volumes}"
       volumes.each do |volume|
         if volume[:_delete] == '1' && volume[:id].present?
           hd = vm.hard_drives.get(path: volume[:path])

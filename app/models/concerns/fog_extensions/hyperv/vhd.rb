@@ -7,10 +7,6 @@ module FogExtensions
       def id
         identity
       end
-
-      def method_missing(name, *args)
-        puts "[VHD] Missing method; #{name}(#{args.join ', '})"
-      end
     end
   end
 end

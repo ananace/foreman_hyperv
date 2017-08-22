@@ -48,19 +48,18 @@ module FogExtensions
       end
 
       def vm_description
-        format(_('%{cpus} CPUs and %{ram} memory'), :cpus => processor_count, :ram => number_to_human_size(memory_startup))
+        format _('%{cpus} CPUs and %{ram} memory'),
+               cpus: processor_count,
+               ram: number_to_human_size(memory_startup)
       end
 
       def select_nic(fog_nics, nic)
         nic_attrs = nic.compute_attributes
-        puts "select_nic(#{fog_nics}, #{nic}[#{nic_attrs}])"
-        match =   fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
-        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['network'] } # Fall back to any on the same switch
+        logger.debug "select_nic(#{fog_nics}, #{nic}[#{nic_attrs}])"
+        match =   fog_nics.detect { |fn| fn.id == nic_attrs['id'] } # Check the id
+        match ||= fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
+        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['network'] } # Fall back to the switch
         match
-      end
-
-      def method_missing(name, *args)
-        puts "[VM] Missing method; #{name}(#{args.join ', '})"
       end
     end
   end

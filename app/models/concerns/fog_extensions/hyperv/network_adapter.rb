@@ -14,7 +14,7 @@ module FogExtensions
       end
 
       def mac=(m)
-        mac_address = m.remove ':'
+        self.mac_address = m.remove ':'
       end
 
       def network
@@ -22,11 +22,7 @@ module FogExtensions
       end
 
       def network=(net)
-        switch_name = net
-      end
-
-      def method_missing(name, *args)
-        puts "[NIC] Missing method; #{name}(#{args.join ', '})"
+        self.switch_name = net
       end
     end
   end
