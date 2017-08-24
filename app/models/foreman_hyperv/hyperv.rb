@@ -75,17 +75,18 @@ module ForemanHyperv
 
       vm.save if vm.dirty?
 
+      if vm.generation == 2 && !args[:secure_boot_enabled].nil?
+        f = vm.firmware
+        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:secure_boot_enabled]) ? :On : :Off
+        f.save if f.dirty?
+      end
+
       create_interfaces(vm, args[:interfaces_attributes])
       create_volumes(vm, args[:volumes_attributes])
 
-      vm.start unless ActiveRecord::Type::Boolean.new.type_cast_from_user args[:start]
       vm
     rescue StandardError => e
-      vm.stop turn_off: true if vm.ready?
-      vm.hard_drives.each do |hd|
-        hd.vhd.destroy if hd.path
-      end
-      vm.destroy
+      vm.stop turn_off: true
 
       raise e
     end
@@ -94,7 +95,12 @@ module ForemanHyperv
       vm = find_vm_by_uuid(uuid)
       logger.debug "Saving a VM with arguments; #{attr}"
       attr.each do |k, v|
-        vm.send("#{k}=".to_sym, v)
+        vm.send("#{k}=".to_sym, v) if vm.respond_to?("#{k}=".to_sym)
+      end
+      if vm.generation == 2 && !args[:secure_boot_enabled].nil?
+        f = vm.firmware
+        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:secure_boot_enabled]) ? :On : :Off
+        f.save if f.dirty?
       end
       update_interfaces(vm, attr[:interfaces_attributes])
       update_volumes(vm, attr[:volumes_attributes])
@@ -104,7 +110,7 @@ module ForemanHyperv
 
     def destroy_vm(uuid)
       vm = find_vm_by_uuid(uuid)
-      vm.stop turn_off: true
+      vm.stop force: true if vm.ready?
       vm.hard_drives.each do |hd|
         hd.vhd.destroy if hd.path
       end

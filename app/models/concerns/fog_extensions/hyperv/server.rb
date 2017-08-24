@@ -34,15 +34,11 @@ module FogExtensions
 
       def volumes_attributes=(_attributes); end
 
+      def secure_boot_enabled=(_); end
+
       def secure_boot_enabled
         return false if generation == 1
         firmware.secure_boot == :On
-      end
-
-      def secure_boot_enabled=(bool)
-        return true if generation == 1
-        bool = ActiveRecord::Type::Boolean.new.type_cast_from_user bool
-        firmware.secure_boot = bool ? :On : :Off
       end
 
       def reset
