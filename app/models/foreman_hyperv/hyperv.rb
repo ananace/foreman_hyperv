@@ -17,7 +17,7 @@ module ForemanHyperv
     def test_connection(options = {})
       super options
       client.valid?
-    rescue Fog::Hyperv::Errors::ServiceError
+    rescue Fog::Hyperv::Errors::ServiceError, ArgumentError, WinRM::WinRMAuthorizationError
       false
     end
 
