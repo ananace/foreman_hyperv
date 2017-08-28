@@ -2,7 +2,7 @@
 
 Microsoft Hyper-V compute resource for Foreman
 
-**NB**; Uses the as-of-yet unreleased `fog-hyperv` gem found [here](https://github.com/ace13/fog-hyperv).
+Uses the in-development `fog-hyperv` gem found [here](https://github.com/ace13/fog-hyperv).
 
 ## Contributing
 
