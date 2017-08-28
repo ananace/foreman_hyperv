@@ -30,6 +30,10 @@ module FogExtensions
         vhds
       end
 
+      def persisted?
+        identity.present?
+      end
+
       def interfaces_attributes=(_attributes); end
 
       def volumes_attributes=(_attributes); end
