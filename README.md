@@ -1,5 +1,7 @@
 # Foreman Hyper-V
 
+[![Gem Version](https://badge.fury.io/rb/foreman_hyperv.svg)](https://badge.fury.io/rb/foreman_hyperv)
+
 Microsoft Hyper-V compute resource for Foreman
 
 Uses the in-development `fog-hyperv` gem found [here](https://github.com/ace13/fog-hyperv).
