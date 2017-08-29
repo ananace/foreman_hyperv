@@ -185,7 +185,7 @@ module ForemanHyperv
       interfaces = nested_attributes_for :interfaces, attrs
       client.logger.debug "Building interfaces with: #{interfaces}"
       interfaces.each do |iface|
-        nic = vm.network_adapters.create name: iface[:name], switch_name: iface[:network]
+        nic = vm.network_adapters.new name: iface[:name], switch_name: iface[:network]
         if iface[:mac]
           nic.mac = iface[:mac]
           nic.dynamic_mac_address_enabled = false
