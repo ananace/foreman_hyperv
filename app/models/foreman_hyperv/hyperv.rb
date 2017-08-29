@@ -54,10 +54,11 @@ module ForemanHyperv
     def create_vm(args = {})
       args = vm_instance_defaults.merge(args.to_hash.deep_symbolize_keys)
       logger.debug "Creating a VM with arguments; #{args}"
+
       pre_create = {
         boot_device: 'NetworkAdapter',
         generation: args[:generation].to_i,
-        memory_startup: args[:memory_startup].presence,
+        memory_startup: args[:memory_startup].presence.to_i,
         name: args[:name],
         no_vhd: true
       }
@@ -66,6 +67,8 @@ module ForemanHyperv
 
       post_save = {
         dynamic_memory_enabled: ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:dynamic_memory_enabled]),
+        memory_minimum: args[:memory_minimum].presence.to_i,
+        memory_maximum: args[:memory_maximum].presence.to_i,
         notes: args[:notes].presence,
         processor_count: args[:processor_count].to_i
       }
@@ -75,7 +78,7 @@ module ForemanHyperv
 
       vm.save if vm.dirty?
 
-      if vm.generation == 2 && !args[:secure_boot_enabled].nil?
+      if vm.generation == 2 && args[:secure_boot_enabled].present?
         f = vm.firmware
         f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
@@ -97,13 +100,16 @@ module ForemanHyperv
       attr.each do |k, v|
         vm.send("#{k}=".to_sym, v) if vm.respond_to?("#{k}=".to_sym)
       end
-      if vm.generation == 2 && !args[:secure_boot_enabled].nil?
+
+      if vm.generation == 2 && attr[:secure_boot_enabled].present?
         f = vm.firmware
-        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:secure_boot_enabled]) ? :On : :Off
+        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(attr[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
       end
+
       update_interfaces(vm, attr[:interfaces_attributes])
       update_volumes(vm, attr[:volumes_attributes])
+
       vm.save if vm.dirty?
       vm
     end

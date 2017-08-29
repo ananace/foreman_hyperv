@@ -1,15 +1,17 @@
-<%#= compute_specific_js(compute_resource, 'base') %>
 <%= javascript_tag("$(document).on('ContentLoad', tfm.numFields.initAll)") %>
 
 <%
   generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]
 %>
-<%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange()'  %>
-<%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot') }, 'true', 'false' %>
+<%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
+<%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot'), disabled: f.object.generation == 1 }, 'true', 'false' %>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
-<%= byte_size_f f, :memory_startup, class: 'col-md-2', label: _('Memory') %>
-<%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory') }, 'true', 'false' %>
+<%= byte_size_f f, :memory_startup, class: 'col-md-2', label: _('Memory (Startup)') %>
+
+<%= byte_size_f f, :memory_maximum, class: 'col-md-2', label: _('Memory Maximum'), disabled: !f.object.dynamic_memory_enabled %>
+<%= byte_size_f f, :memory_minimum, class: 'col-md-2', label: _('Memory Minimum'), disabled: !f.object.dynamic_memory_enabled %>
+<%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory'), onchange: 'hypervDynamicMemoryChange(this);' }, 'true', 'false' %>
 
 <% if new_host %>
 <% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
@@ -18,3 +20,5 @@
 
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
 <%= f.hidden_field :id %>
+
+<%= compute_specific_js(compute_resource, 'base') %>
