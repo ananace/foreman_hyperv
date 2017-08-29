@@ -241,11 +241,11 @@ module ForemanHyperv
       client.logger.debug "Updating volumes with: #{volumes}"
       volumes.each do |volume|
         if volume[:_delete] == '1' && volume[:id].present?
-          hd = vm.hard_drives.get(path: volume[:path])
+          hd = vm.hard_drives.find { |h| h.id == volume[:id] }
           hd.vhd.destroy
           hd.destroy
         end
-        vm.hard_drives.create(path: volume[:path], size: volume[:size]) if volume[:id].blank?
+        vm.hard_drives.create(path: volume[:path], size: volume[:size]) if volume[:id].blank? && volume[:_delete] != '1'
       end
     end
   end
