@@ -15,10 +15,10 @@ module ForemanHyperv
     end
 
     def test_connection(options = {})
-      super options
+      super
       client.valid?
-    rescue Fog::Hyperv::Errors::ServiceError, ArgumentError, WinRM::WinRMAuthorizationError
-      false
+    rescue Fog::Hyperv::Errors::ServiceError, ArgumentError, WinRM::WinRMAuthorizationError => e
+      errors[:base] << e.message
     end
 
     def provided_attributes
