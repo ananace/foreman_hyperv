@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^test\/})
   spec.require_paths = ['lib']
 
-  spec.add_runtime_dependency 'fog-hyperv', '~> 0.0.1'
+  spec.add_runtime_dependency 'fog-hyperv', '~> 0.0.2'
 
   spec.add_development_dependency 'bundler', '~> 1.13'
   spec.add_development_dependency 'rake', '~> 10.0'
