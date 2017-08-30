@@ -1,4 +1,4 @@
-## v0.0.2 *(unreleased)*
+## v0.0.2 2017-09-30
 
 - Add Dynamic memory settings
 - Add JS for disabling unavailable settings to improve UX
