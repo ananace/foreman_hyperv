@@ -22,6 +22,17 @@
     <tbody>
       <%= prop :id %>
       <%#= prop :cluster %>
+      <%= prop :name %>
+      <tr>
+        <td>Generation</td>
+        <td><%= @vm.generation == 1 ? 'Generation 1 (BIOS)' : 'Generation 2 (UEFI)' %></td>
+      </tr>
+      <% if @vm.generation != 1 %>
+        <tr>
+          <td>SecureBoot</td>
+          <td><%= @vm.firmware.secure_boot %></td>
+        </tr>
+      <% end %>
       <% if @vm.dynamic_memory_enabled %>
         <%= memory_prop :memory_maximum %>
         <%= memory_prop :memory_minimum %>
