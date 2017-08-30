@@ -1,15 +1,10 @@
-## Version 0.0.2 *(unreleased)*
+## v0.0.2 *(unreleased)*
 
-Added:
-- Dynamic memory settings
-- JS for disabling unavailable settings to improve UX
+- Add Dynamic memory settings
+- Add JS for disabling unavailable settings to improve UX
+- Fix secure boot setting to actually apply
+- Skip several unnecessary Hyper-V calls to improve performance
 
-Fixed:
-- Secure boot setting is now actually applied
+## v0.0.1 2017-09-28
 
-Changed:
-- Removed several unnecessary Hyper-V calls to improve performance
-
-## Version 0.0.1
-
-Initial release
+- Initial release
