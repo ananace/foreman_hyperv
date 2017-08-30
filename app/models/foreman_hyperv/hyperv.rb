@@ -66,7 +66,7 @@ module ForemanHyperv
       vm = client.servers.create pre_create
 
       post_save = {
-        dynamic_memory_enabled: ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:dynamic_memory_enabled]),
+        dynamic_memory_enabled: Foreman::Cast.to_bool(args[:dynamic_memory_enabled]),
         memory_minimum: args[:memory_minimum].presence.to_i,
         memory_maximum: args[:memory_maximum].presence.to_i,
         notes: args[:notes].presence,
@@ -80,7 +80,7 @@ module ForemanHyperv
 
       if vm.generation == 2 && args[:secure_boot_enabled].present?
         f = vm.firmware
-        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(args[:secure_boot_enabled]) ? :On : :Off
+        f.secure_boot = Foreman::Cast.to_bool(args[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
       end
 
@@ -103,7 +103,7 @@ module ForemanHyperv
 
       if vm.generation == 2 && attr[:secure_boot_enabled].present?
         f = vm.firmware
-        f.secure_boot = ActiveRecord::Type::Boolean.new.type_cast_from_user(attr[:secure_boot_enabled]) ? :On : :Off
+        f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
       end
 
