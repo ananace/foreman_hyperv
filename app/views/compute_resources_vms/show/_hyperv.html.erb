@@ -1,4 +1,18 @@
 <% title @vm.name %>
+<%
+  def memory_prop(method)
+    content_tag :tr do
+      result = content_tag(:td) do
+        method.to_s.humanize
+      end
+      result += content_tag(:td) do
+        value = @vm.send(method) rescue nil
+        value && number_to_human_size(value)
+      end
+      result
+    end
+  end
+%>
 
 <div class='col-md-12'>
   <table class="<%= table_css_classes %>">
@@ -8,10 +22,10 @@
     <tbody>
       <%= prop :id %>
       <%#= prop :cluster %>
-      <%= prop :memory_startup %>
+      <%= memory_prop :memory_startup %>
       <% if @vm.dynamic_memory_enabled %>
-        <%= prop :memory_minimum %>
-        <%= prop :memory_maximum %>
+        <%= memory_prop :memory_minimum %>
+        <%= memory_prop :memory_maximum %>
       <% end %>
       <%= prop :public_ip_address %>
       <%= prop :mac %>
