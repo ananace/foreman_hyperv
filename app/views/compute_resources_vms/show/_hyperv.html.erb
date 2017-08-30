@@ -22,11 +22,11 @@
     <tbody>
       <%= prop :id %>
       <%#= prop :cluster %>
-      <%= memory_prop :memory_startup %>
       <% if @vm.dynamic_memory_enabled %>
-        <%= memory_prop :memory_minimum %>
         <%= memory_prop :memory_maximum %>
+        <%= memory_prop :memory_minimum %>
       <% end %>
+      <%= memory_prop :memory_startup %>
       <%= prop :public_ip_address %>
       <%= prop :mac %>
       <%= prop :processor_count %>
