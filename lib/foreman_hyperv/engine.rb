@@ -9,8 +9,19 @@ module ForemanHyperv
       end
     end
 
+    assets_to_precompile =
+      Dir.chdir(root) do
+        Dir['app/assets/javascripts/**/*'].map do |f|
+          f.split(File::SEPARATOR, 4).last
+        end
+      end
+
     initializer 'foreman_hyperv.assets.precompile' do |app|
-      app.config.assets.precompile += %w(compute_resources/hyperv/base.js)
+      app.config.assets.precompile += assets_to_precompile
+    end
+
+    initializer 'foreman_hyperv.configure_assets', group: :assets do
+      SETTINGS[:foreman_hyperv] = { assets: { precompile: assets_to_precompile } }
     end
 
     config.to_prepare do
