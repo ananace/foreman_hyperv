@@ -1,3 +1,7 @@
+## v0.0.3 (*unreleased*)
+
+- Fix association of VMs by MAC address (case issue)
+
 ## v0.0.2 2017-08-30
 
 - Add Dynamic memory settings
