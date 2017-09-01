@@ -15,7 +15,7 @@ module FogExtensions
       end
 
       def mac(m = mac_addresses.first)
-        "#{m[0, 2]}:#{m[2, 2]}:#{m[4, 2]}:#{m[6, 2]}:#{m[8, 2]}:#{m[10, 2]}"
+        "#{m[0, 2]}:#{m[2, 2]}:#{m[4, 2]}:#{m[6, 2]}:#{m[8, 2]}:#{m[10, 2]}".downcase
       end
 
       def clean_mac_addresses
