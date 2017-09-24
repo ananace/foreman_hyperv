@@ -6,8 +6,8 @@
 %>
 <% if clusters.any? %>
 <%= select_f f, :cluster_name, clusters, :to_s, :to_s %>
-<% end %>
 <%= select_f f, :computer_name, computers, :to_s, :to_s %>
+<% end %>
 
 <%
   generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]
