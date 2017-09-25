@@ -155,6 +155,10 @@ module ForemanHyperv
       client.hosts
     end
 
+    def clusters
+      client.clusters rescue []
+    end
+
     def hypervisor
       client.hosts.first
     end
