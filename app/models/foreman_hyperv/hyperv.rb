@@ -154,6 +154,7 @@ module ForemanHyperv
     def available_hypervisors
       client.hosts
     end
+    alias hosts available_hypervisors
 
     def clusters
       client.clusters rescue []
