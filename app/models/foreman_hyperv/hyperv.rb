@@ -158,7 +158,7 @@ module ForemanHyperv
 
     def clusters
       if client.respond_to? :supports_clusters?
-        return nil unless client.supports_clusters?
+        return [] unless client.supports_clusters?
       end
       client.clusters rescue []
     end
