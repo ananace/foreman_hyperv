@@ -157,6 +157,9 @@ module ForemanHyperv
     alias hosts available_hypervisors
 
     def clusters
+      if client.respond_to? :supports_clusters?
+        return nil unless client.supports_clusters?
+      end
       client.clusters rescue []
     end
 
