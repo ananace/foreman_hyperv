@@ -38,10 +38,17 @@ module FogExtensions
 
       def volumes_attributes=(_attributes); end
 
-      def secure_boot_enabled=(_); end
+      def secure_boot_enabled=(enabled)
+        @secure_boot = enabled
+        return unless persisted?
+
+        firmware.secure_boot = enabled ? :On : :Off
+      end
 
       def secure_boot_enabled
         return false if generation == 1
+        return @secure_boot unless persisted?
+
         firmware.secure_boot == :On
       end
 
