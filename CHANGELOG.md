@@ -2,6 +2,7 @@
 
 - Fix association of VMs by MAC address (case issue)
 - Fix over-eager secure boot setting access on unpersisted VMs
+- Fix over-eager cluster iteration, ensure the hypervisor supports clusters first (Requires fog-hyperv v0.0.6)
 
 ## v0.0.2 2017-08-30
 
