@@ -40,13 +40,16 @@ module FogExtensions
 
       def secure_boot_enabled=(enabled)
         @secure_boot = enabled
-        firmware.secure_boot = enabled ? :On : :Off if persisted?
+        return unless persisted?
+
+        firmware.secure_boot = enabled ? :On : :Off
       end
 
       def secure_boot_enabled
         return false if generation == 1
-        @secure_boot
-        firmware.secure_boot == :On if persisted?
+        return @secure_boot unless persisted?
+
+        firmware.secure_boot == :On
       end
 
       def reset
