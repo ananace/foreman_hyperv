@@ -6,6 +6,10 @@ Microsoft Hyper-V compute resource for Foreman
 
 Uses the in-development `fog-hyperv` gem found [here](https://github.com/ace13/fog-hyperv).
 
+## Nota Bene
+
+Currently the plugin only supports Hyper-V hosts where the names are well defined in DNS and in connection strings, avoid using IP addresses for now.
+
 ## Testing/Installing
 
 Follow the Foreman manual for [advanced installation from gems](https://theforeman.org/plugins/#2.3AdvancedInstallationfromGems) for `fog-hyperv` and `foreman_hyperv`.
