@@ -1,4 +1,4 @@
-## v0.0.3 (*unreleased*)
+## v0.0.3 2018-01-15
 
 - Fix association of VMs by MAC address (case issue)
 - Fix over-eager secure boot setting access on unpersisted VMs
