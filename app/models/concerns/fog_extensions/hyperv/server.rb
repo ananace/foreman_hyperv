@@ -38,6 +38,10 @@ module FogExtensions
 
       def volumes_attributes=(_attributes); end
 
+      def vlan; end
+
+      def vlan=(_vlan); end
+
       def secure_boot_enabled=(enabled)
         @secure_boot = enabled
         return unless persisted?

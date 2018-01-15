@@ -1,3 +1,7 @@
+## v0.0.4 **Unreleased**
+
+- Allow setting a VM-wide VLAN value
+
 ## v0.0.3 2018-01-15
 
 - Fix association of VMs by MAC address (case issue)
