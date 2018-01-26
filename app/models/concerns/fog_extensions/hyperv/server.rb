@@ -60,6 +60,10 @@ module FogExtensions
         restart(force: true)
       end
 
+      def state
+        attributes[:state].to_s.upcase
+      end
+
       def stop
         requires :name, :computer_name
         service.stop_vm options.merge(
