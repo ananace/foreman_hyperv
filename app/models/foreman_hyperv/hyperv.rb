@@ -169,6 +169,8 @@ module ForemanHyperv
       client.hosts.first
     end
 
+    delegate :servers, to: :client
+
     protected
 
     def client

@@ -27,7 +27,7 @@
 <%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory'), onchange: 'hypervDynamicMemoryChange(this);' }, 'true', 'false' %>
 
 <% if new_host %>
-<%   if compute_resource.server.new().respond_to? :set_vlan -%>
+<%   if compute_resource.servers.new().respond_to? :set_vlan -%>
 <%= text_f f, :vlan, label: _('VLAN'), label_size: 'col-md-2' %>
 <%   end -%>
 <% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
