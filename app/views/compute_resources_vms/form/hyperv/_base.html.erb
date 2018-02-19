@@ -5,10 +5,10 @@
   computers = (f.object.cluster || compute_resource).hosts.map(&:name)
 %>
 <% if clusters.any? -%>
-  <% if clusters.count > 1 -%>
-    <%= select_f f, :cluster_name, clusters, :to_s, :to_s, {}, label: _('Cluster') %>
+  <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
+  <% if computers.count > 1 -%>
+    <%= select_f f, :computer_name, computers, :to_s, :to_s, {}, label: _('Computer Name') %>
   <% end -%>
-  <%= select_f f, :computer_name, computers, :to_s, :to_s, {}, label: _('Computer Name') %>
 <% end %>
 
 <%
