@@ -2,6 +2,7 @@
 
 <%
   clusters = compute_resource.clusters.map(&:name)
+  f.object.cluster_name = clusters.first if clusters.count == 1
   computers = (f.object.cluster || compute_resource).hosts.map(&:name)
 %>
 <% if clusters.any? -%>
