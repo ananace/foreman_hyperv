@@ -3,7 +3,7 @@
 <%
   clusters = compute_resource.clusters.map(&:name)
   f.object.cluster_name = clusters.first if clusters.count == 1
-  computers = (f.object.cluster || compute_resource).hosts.map(&:name)
+  computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts.map(&:name)
 %>
 <% if clusters.any? -%>
   <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
