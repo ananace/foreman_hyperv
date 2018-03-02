@@ -65,8 +65,6 @@ module ForemanHyperv
 
       vm = client.servers.create pre_create
 
-      vm.set_vlan(args[:vlan].to_i) if args[:vlan].presence && vm.respond_to?(:set_vlan)
-
       post_save = {
         dynamic_memory_enabled: Foreman::Cast.to_bool(args[:dynamic_memory_enabled]),
         memory_minimum: args[:memory_minimum].presence.to_i,
@@ -88,6 +86,8 @@ module ForemanHyperv
 
       create_interfaces(vm, args[:interfaces_attributes])
       create_volumes(vm, args[:volumes_attributes])
+
+      vm.set_vlan(args[:vlan].to_i) if args[:vlan].presence && vm.respond_to?(:set_vlan)
 
       vm
     rescue StandardError => e
