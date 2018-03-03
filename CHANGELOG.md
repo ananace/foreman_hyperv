@@ -1,6 +1,8 @@
 ## v0.0.4 **Unreleased**
 
 - Allow setting a VM-wide VLAN value
+- Default to using the first available cluster if one exists
+  - This allows the use of clustered machines, as long as all machines are set up with identical switch configurations
 
 ## v0.0.3 2018-01-15
 
