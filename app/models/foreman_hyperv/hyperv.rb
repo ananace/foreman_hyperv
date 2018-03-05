@@ -55,8 +55,11 @@ module ForemanHyperv
       args = vm_instance_defaults.merge(args.to_hash.deep_symbolize_keys)
       client.logger.debug "Creating a VM with arguments; #{args}"
 
+      args[:computer_name] = args[:computer_name].presence || '.'
+
       pre_create = {
         boot_device: 'NetworkAdapter',
+        computer_name: args[:computer_name],
         generation: args[:generation].to_i,
         memory_startup: args[:memory_startup].presence.to_i,
         name: args[:name],
