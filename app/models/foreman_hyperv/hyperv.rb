@@ -165,7 +165,10 @@ module ForemanHyperv
       if client.respond_to? :supports_clusters?
         return [] unless client.supports_clusters?
       end
-      client.clusters rescue []
+
+      client.clusters
+    rescue
+      []
     end
 
     def hypervisor
