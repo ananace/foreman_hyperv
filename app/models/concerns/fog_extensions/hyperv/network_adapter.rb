@@ -24,6 +24,14 @@ module FogExtensions
       def network=(net)
         self.switch_name = net
       end
+
+      def type
+        is_legacy
+      end
+
+      def type=(type)
+        self.is_legacy = type
+      end
     end
   end
 end

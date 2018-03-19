@@ -1,5 +1,5 @@
 <%
-    networks = (f.object.computer || compute_resource).switches.map do |sw|
+    networks = compute_resource.switches.map do |sw|
       [ sw.name, "#{sw.name}#{sw.switch_type ? " (#{sw.switch_type})" : nil}" ]
     end
 %>
@@ -7,4 +7,5 @@
 <%= select_f f, :network, networks, :first, :last,
                 { include_blank: true },
                 { label: _('Network switch'), :label_size => 'col-md-3' } %>
+<%= checkbox_f f, :type, { label: _('Legacy Network Adapter'), label_size: 'col-md-3', disabled: !new_host }, 'true', 'false' %>
 <%= f.hidden_field :id %>

@@ -1,9 +1,18 @@
 <%= javascript_tag("$(document).on('ContentLoad', tfm.numFields.initAll)") %>
 
 <%
-  clusters = compute_resource.clusters.map(&:name)
-  f.object.cluster_name = clusters.first if clusters.count == 1
-  computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts.map(&:name)
+  cluster_errors = []
+  begin
+    clusters = compute_resource.clusters.map(&:name)
+    f.object.cluster_name = clusters.first if clusters.count == 1
+    computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts.map(&:name)
+  rescue Fog::Hyperv::Errors::PSError => ex
+    # In case of errors
+    clusters = []
+    computers = []
+
+    cluster_errors << ex
+  end
 %>
 <% if clusters.any? -%>
   <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
@@ -11,6 +20,12 @@
     <%= select_f f, :computer_name, computers, :to_s, :to_s, {}, label: _('Computer Name') %>
   <% end -%>
 <% end %>
+<% cluster_errors.each do |err| -%>
+<div class="alert alert-warning alert-dismissable">
+  <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+  <span class="pficon pficon-error-circle-o "></span> <span class="text"><%= err.message %> (<%= err.info %>)</span>
+</div>
+<% end -%>
 
 <%
   generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]

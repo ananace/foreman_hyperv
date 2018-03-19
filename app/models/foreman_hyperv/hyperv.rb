@@ -208,6 +208,9 @@ module ForemanHyperv
           nic.mac = iface[:mac]
           nic.dynamic_mac_address_enabled = false
         end
+        if vm.generation == 1 && iface[:type].present?
+          nic.is_legacy = Foreman::Cast.to_bool(iface[:type])
+        end
         nic.save
       end
 

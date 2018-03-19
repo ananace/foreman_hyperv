@@ -34,7 +34,9 @@ module FogExtensions
         identity.present?
       end
 
-      def interfaces_attributes=(_attributes); end
+      def interfaces_attributes=(_attributes)
+        true
+      end
 
       def volumes_attributes=(_attributes); end
 
