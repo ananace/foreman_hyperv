@@ -3,6 +3,8 @@
 - Allow setting a VM-wide VLAN value
 - Default to using the first available cluster if one exists
   - This allows the use of clustered machines, as long as all machines are set up with identical switch configurations
+- Support the creation of legacy NICs for BIOS
+  - Requires fog-hyperv 0.0.8 / d4bf0fcdef691573c25744c3f3930961d5f767d6
 
 ## v0.0.3 2018-01-15
 
