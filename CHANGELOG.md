@@ -1,4 +1,4 @@
-## v0.0.4 **Unreleased**
+## v0.0.4 2018-04-06
 
 - Allow setting a VM-wide VLAN value
 - Default to using the first available cluster if one exists
