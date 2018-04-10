@@ -9,7 +9,7 @@ module FogExtensions
       end
 
       def mac
-        m = mac_address
+        m = mac_address.downcase
         "#{m[0, 2]}:#{m[2, 2]}:#{m[4, 2]}:#{m[6, 2]}:#{m[8, 2]}:#{m[10, 2]}"
       end
 

@@ -1,3 +1,7 @@
+## v0.0.5 **Unreleased**
+
+- Lowercase the MAC addresses on NIC- as well as host level
+
 ## v0.0.4 2018-04-06
 
 - Allow setting a VM-wide VLAN value
