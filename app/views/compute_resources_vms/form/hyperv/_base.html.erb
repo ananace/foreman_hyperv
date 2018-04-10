@@ -53,4 +53,4 @@
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
 <%= f.hidden_field :id %>
 
-<%= compute_specific_js(compute_resource, 'base') %>
+<%= javascript_include_tag("foreman_hyperv/compute_resource_base.js") %>
