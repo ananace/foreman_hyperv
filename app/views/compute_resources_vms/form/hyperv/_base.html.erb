@@ -1,11 +1,11 @@
-<%= javascript_tag("$(document).on('ContentLoad', tfm.numFields.initAll)") %>
+<%= javascript_tag("$(document).on('ContentLoad', function() { tfm.numFields.initAll(); })") %>
 
 <%
   cluster_errors = []
   begin
     clusters = compute_resource.clusters.map(&:name)
     f.object.cluster_name = clusters.first if clusters.count == 1
-    computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts.map(&:name)
+    computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts
   rescue Fog::Hyperv::Errors::PSError => ex
     # In case of errors
     clusters = []
@@ -17,9 +17,29 @@
 <% if clusters.any? -%>
   <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
   <% if computers.count > 1 -%>
-    <%= select_f f, :computer_name, computers, :to_s, :to_s, {}, label: _('Computer Name') %>
+    <%= select_f f, :computer_name, computers, :name, :name, {}, label: _('Computer Name'), onload: 'hypervHostChange(this);', onchange: 'hypervHostChange(this);' %>
   <% end -%>
 <% end %>
+<div class="clearfix">
+  <div class="col-md-2">&nbsp;</div>
+  <div class="col-md-4 help-block" id="hypervComputerInformation" style="margin-top: -1.25em;">
+<% computers.each do |host| -%>
+    <table class="hyperv-host-info" style="display: none" data-host="<%= host.name %>">
+      <tbody>
+        <tr>
+          <td>Logical CPU Count:</td>
+          <td style="padding-left:0.5em;"><%= host.logical_processor_count %></td>
+        </tr>
+        <tr>
+          <td>Memory Capacity:</td>
+          <td style="padding-left:0.5em;"><%= number_to_human_size(host.memory_capacity) %></td>
+        </tr>
+      </tbody>
+    </table>
+<% end -%>
+  </div>
+</div>
+
 <% cluster_errors.each do |err| -%>
 <div class="alert alert-warning alert-dismissable">
   <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
