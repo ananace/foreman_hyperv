@@ -6,6 +6,7 @@
     clusters = compute_resource.clusters.map(&:name)
     f.object.cluster_name = clusters.first if clusters.count == 1
     computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts
+    f.object.computer_name ||= computers.first.name
   rescue Fog::Hyperv::Errors::PSError => ex
     # In case of errors
     clusters = []
@@ -24,7 +25,7 @@
   <div class="col-md-2">&nbsp;</div>
   <div class="col-md-4 help-block" id="hypervComputerInformation" style="margin-top: -1.25em;">
 <% computers.each do |host| -%>
-    <table class="hyperv-host-info" style="display: none" data-host="<%= host.name %>">
+    <table class="hyperv-host-info" style="<%= (host.name == f.object.computer_name) ? '' : 'display: none' %>" data-host="<%= host.name %>">
       <tbody>
         <tr>
           <td>Logical CPU Count:</td>

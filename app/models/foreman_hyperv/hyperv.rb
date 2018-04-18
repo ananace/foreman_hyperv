@@ -1,5 +1,7 @@
 module ForemanHyperv
   class Hyperv < ::ComputeResource
+    include ComputeResourceCaching
+
     validates :url, :user, :password, presence: true
 
     def capabilities
@@ -149,7 +151,9 @@ module ForemanHyperv
     end
 
     def switches
-      client.switches.all # _quick_query: true
+      cache.cache(:switches) do
+        client.switches.all
+      end
     end
 
     def supports_update?
@@ -157,22 +161,22 @@ module ForemanHyperv
     end
 
     def available_hypervisors
-      client.hosts
+      cache.cache(:available_hypervisor) do
+        client.hosts.all
+      end
     end
     alias hosts available_hypervisors
 
     def clusters
-      if client.respond_to? :supports_clusters?
-        return [] unless client.supports_clusters?
+      cache.cache(:clusters) do
+        _clusters.all
       end
-
-      client.clusters
-    rescue
-      []
     end
 
     def hypervisor
-      client.hosts.first
+      cache.cache(:hypervisor) do
+        client.hosts.first
+      end
     end
 
     delegate :servers, to: :client
@@ -195,6 +199,16 @@ module ForemanHyperv
         processor_count: 1,
         boot_device:     'NetworkAdapter'
       )
+    end
+
+    def _clusters
+      if client.respond_to? :supports_clusters?
+        return [].dup unless client.supports_clusters?
+      end
+
+      client.clusters
+    rescue
+      [].dup
     end
 
     def create_interfaces(vm, attrs)

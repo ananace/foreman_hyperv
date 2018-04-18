@@ -2,6 +2,10 @@
 <%= text_f f, :user, label: _('User') %>
 <%= password_f f, :password, label: _('Password') %>
 
+<%# Currently not working due to marshaling errors %>
+<%#= checkbox_f f, :caching_enabled, :label => _("Enable Caching"),
+                  :help_inline => _("Cache slow calls to Hyper-V to speed up page rendering") %>
+
 <%= link_to_function _("Test Connection"), "testConnection(this)", :class => "btn + #{@compute_resource.test_connection.is_a?(FalseClass) ? "btn-default" : "btn-success"}", :'data-url' => test_connection_compute_resources_path %>
 
 <%= hidden_spinner('', :id => 'test_connection_indicator') %>
