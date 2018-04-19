@@ -1,3 +1,5 @@
+$(document).on('ContentLoad', function() { tfm.numFields.initAll(); });
+
 function hypervGenerationChange(item) {
   var toIter = ['#host_compute_attributes_secure_boot_enabled', '#compute_attribute_vm_attrs_secure_boot_enabled'];
   gen = $(item).val();

@@ -4,21 +4,30 @@ module ForemanHyperv
 
     validates :url, :user, :password, presence: true
 
-    def capabilities
-      [:build]
-    end
-
     def self.provider_friendly_name
       'Hyper-V'
+    end
+
+    def self.available?
+      Fog::Compute.providers.include?(:hyperv)
     end
 
     def self.model_name
       ComputeResource.model_name
     end
 
+    def supports_update?
+      true
+    end
+
+    def capabilities
+      [:build]
+    end
+
     def test_connection(options = {})
       super
-      client.valid?
+      errors[:base] << 'Unable to validate connection' \
+        unless client.valid?
     rescue Fog::Hyperv::Errors::ServiceError, ArgumentError, WinRM::WinRMAuthorizationError => e
       errors[:base] << e.message
     end
@@ -28,12 +37,12 @@ module ForemanHyperv
     end
 
     # TODO
-    def max_cpu_count
-      hypervisor.logical_processor_count
+    def max_cpu_count(host = nil)
+      (host || hypervisor).logical_processor_count
     end
 
-    def max_memory
-      hypervisor.memory_capacity
+    def max_memory(host = nil)
+      (host || hypervisor).memory_capacity
     end
 
     def associated_host(vm)
@@ -150,16 +159,6 @@ module ForemanHyperv
       true
     end
 
-    def switches
-      cache.cache(:switches) do
-        client.switches.all
-      end
-    end
-
-    def supports_update?
-      true
-    end
-
     def available_hypervisors
       cache.cache(:available_hypervisor) do
         client.hosts.all
@@ -167,10 +166,17 @@ module ForemanHyperv
     end
     alias hosts available_hypervisors
 
-    def clusters
-      cache.cache(:clusters) do
-        _clusters.all
+    def cluster(name)
+      return nil unless name
+      cache.cache("clusters-#{name}".to_sym) do
+        clusters.find { |c| c.name == name }
       end
+    end
+
+    def clusters
+      # cache.cache(:clusters) do
+        _clusters
+      # end
     end
 
     def hypervisor
@@ -180,6 +186,11 @@ module ForemanHyperv
     end
 
     delegate :servers, to: :client
+
+    def switches(host)
+      host ||= hosts.first
+      host.switches
+    end
 
     protected
 
@@ -203,12 +214,12 @@ module ForemanHyperv
 
     def _clusters
       if client.respond_to? :supports_clusters?
-        return [].dup unless client.supports_clusters?
+        return [] unless client.supports_clusters?
       end
 
-      client.clusters
+      client.clusters.all
     rescue
-      [].dup
+      []
     end
 
     def create_interfaces(vm, attrs)

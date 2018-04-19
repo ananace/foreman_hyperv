@@ -1,11 +1,9 @@
-<%= javascript_tag("$(document).on('ContentLoad', function() { tfm.numFields.initAll(); })") %>
-
 <%
   cluster_errors = []
   begin
     clusters = compute_resource.clusters.map(&:name)
     f.object.cluster_name = clusters.first if clusters.count == 1
-    computers = (compute_resource.clusters.find {|c| c.name == f.object.cluster_name } || compute_resource).hosts
+    computers = (compute_resource.cluster(f.object.cluster_name) || compute_resource).hosts
     f.object.computer_name ||= computers.first.name
   rescue Fog::Hyperv::Errors::PSError => ex
     # In case of errors
@@ -14,7 +12,7 @@
 
     cluster_errors << ex
   end
-%>
+-%>
 <% if clusters.any? -%>
   <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
   <% if computers.count > 1 -%>
@@ -50,11 +48,11 @@
 
 <%
   generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]
-%>
+-%>
 <%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
-<% if new_host || f.object.generation == 2 %>
+<% if new_host || f.object.generation == 2 -%>
 <%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot'), disabled: f.object.generation == 1 }, 'true', 'false' %>
-<% end %>
+<% end -%>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
 <%= byte_size_f f, :memory_startup, class: 'col-md-2', label: _('Memory (Startup)') %>
@@ -63,13 +61,13 @@
 <%= byte_size_f f, :memory_minimum, class: 'col-md-2', label: _('Memory Minimum'), disabled: !f.object.dynamic_memory_enabled %>
 <%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory'), onchange: 'hypervDynamicMemoryChange(this);' }, 'true', 'false' %>
 
-<% if new_host %>
+<% if new_host -%>
 <%   if compute_resource.servers.new().respond_to? :set_vlan -%>
 <%= text_f f, :vlan, label: _('VLAN'), label_size: 'col-md-2' %>
 <%   end -%>
 <% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
 <%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
-<% end %>
+<% end -%>
 
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
 <%= f.hidden_field :id %>

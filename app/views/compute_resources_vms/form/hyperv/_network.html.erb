@@ -1,5 +1,5 @@
 <%
-    networks = compute_resource.switches.map do |sw|
+    networks = compute_resource.switches(nil).map do |sw|
       [ sw.name, "#{sw.name}#{sw.switch_type ? " (#{sw.switch_type})" : nil}" ]
     end
 %>
