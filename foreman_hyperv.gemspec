@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = 'Hyper-V as a Compute Resource for Foreman'
   spec.description   = 'Hyper-V as a Compute Resource for Foreman'
-  spec.homepage      = 'https://github.com/ace13/foreman_hyperv'
+  spec.homepage      = 'https://github.com/ananace/foreman_hyperv'
   spec.license       = 'MIT'
 
   spec.files         = `git ls-files -z`.split("\x0")
