@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = 'https://github.com/ananace/foreman_hyperv'
   spec.license       = 'GPL-3.0'
 
-  spec.files         = Dir['{app,config,db,lib,locale}/**/*']+%w[LICENSE Rakefile README.md]
+  spec.files         = Dir['{app,config,db,lib,locale}/**/*']+%w[LICENSE.txt Rakefile README.md]
   spec.test_files    = spec.files.grep(%r{^test\/})
   spec.require_paths = ['lib']
 
