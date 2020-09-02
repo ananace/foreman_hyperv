@@ -10,6 +10,8 @@ Uses the in-development `fog-hyperv` gem found [here](https://github.com/ananace
 
 Currently the plugin only supports Hyper-V hosts where the names are well defined in DNS and in connection strings, avoid using IP addresses for now.
 
+If you're using SELinux, you may need to enable the connect_all boolean. For Foreman 2.0 and earlier, run `setsebool -P passenger_can_connect_all 1`. For Foreman 2.1 and later the command would be `setsebool -P foreman_rails_can_connect_all 1`.
+
 ## Testing/Installing
 
 Follow the Foreman manual for [advanced installation from gems](https://theforeman.org/plugins/#2.3AdvancedInstallationfromGems) for `fog-hyperv` and `foreman_hyperv`.
