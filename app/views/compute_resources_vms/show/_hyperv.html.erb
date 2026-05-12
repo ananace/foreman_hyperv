@@ -20,31 +20,49 @@
       <tr><th colspan="2"><%=_('Properties') %></th></tr>
     </thead>
     <tbody>
-      <%= prop :id %>
-      <%#= prop :cluster %>
       <%= prop :name %>
+      <%#= prop :cluster %>
+      <%= prop :id %>
       <tr>
         <td>Generation</td>
-        <td><%= @vm.generation == 1 ? 'Generation 1 (BIOS)' : 'Generation 2 (UEFI)' %></td>
+        <td>Generation <%= @vm.generation_num %> (<%= @vm.generation %>)</td>
       </tr>
-      <% if @vm.generation != 1 %>
+      <% if @vm.generation == :UEFI %>
         <tr>
           <td>SecureBoot</td>
           <td><%= @vm.firmware.secure_boot %></td>
         </tr>
       <% end %>
+      <%= prop :processor_count %>
+      <%= memory_prop :memory_startup %>
       <% if @vm.dynamic_memory_enabled %>
         <%= memory_prop :memory_maximum %>
         <%= memory_prop :memory_minimum %>
       <% end %>
-      <%= memory_prop :memory_startup %>
-      <%= prop :public_ip_address %>
-      <%= prop :mac %>
-      <%= prop :processor_count %>
+      <% @vm.network_adapters.each do |nic| %>
+        <tr>
+          <td><%= _('NIC') %></td>
+          <td><%= nic.name %> - <%= nic.mac %> (<% if nic.connected %><%= nic.switch_name %><% end %>)</td>
+        </tr>
+      <% end %>
+      <% @vm.hard_drives.each do |hdd| %>
+        <tr>
+          <td><%= _('Disk') %></td>
+          <% if hdd.vhd? %>
+          <td><%= hdd.name %> - VHD (<%= hdd.vhd.basename %> <%= number_to_human_size(hdd.size_bytes) %>)</td>
+          <% else %>
+          <td><%= hdd.name %> - Physical (<%= hdd.controller_type %>)</td>
+          <% end %>
+        </tr>
+      <% end %>
       <%= prop :computer_name %>
-      <%= prop :status %>
       <%= prop :state %>
+      <%= prop :status %>
       <%= prop :notes %>
+      <tr>
+        <td><%= _('Running on') %></td>
+        <td><%= link_to @compute_resource, compute_resource_path(@compute_resource) %></td>
+      </tr>
     </tbody>
   </table>
 </div>

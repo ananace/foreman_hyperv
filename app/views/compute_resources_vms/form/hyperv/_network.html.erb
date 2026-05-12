@@ -1,11 +1,36 @@
-<%
-    networks = compute_resource.switches(nil).map do |sw|
-      [ sw.name, "#{sw.name}#{sw.switch_type ? " (#{sw.switch_type})" : nil}" ]
-    end
-%>
-<%= text_f f, :name, :label => _('Name'), :label_size => 'col-md-3' %>
-<%= select_f f, :network, networks, :first, :last,
-                { include_blank: true },
-                { label: _('Network switch'), :label_size => 'col-md-3' } %>
-<%= checkbox_f f, :type, { label: _('Legacy Network Adapter'), label_size: 'col-md-3', disabled: !new_host }, 'true', 'false' %>
-<%= f.hidden_field :id %>
+<%= f.hidden_field :id if f.object.persisted? %>
+<%= select_f f, :switch_id, hyperv_networks(compute_resource), :first, :last, { include_blank: true },
+                label: _('Network switch'), label_size: 'col-md-3', size: 'col-md-8' %>
+
+<%= select_f f, :vlan_operation_mode, hyperv_vlan_modes, :first, :last, {},
+  label: _('VLAN mode'), label_size: 'col-md-3', size: 'col-md-8',
+  onchange: 'hypervVLANModeChange(this);' %>
+
+<%# If Access mode %>
+<div class="hyperv_vlan_mode hyperv_vlan_access <%= 'hide' unless f.object.vlan_operation_mode == :Access %>">
+<%= number_f f, :access_vlan_id, label: _('Access VLAN'), label_size: 'col-md-3', size: 'col-md-8', required: true, disabled: (f.object.vlan_operation_mode != :Access) %>
+</div>
+<%# If Trunk mode %>
+<div class="hyperv_vlan_mode hyperv_vlan_trunk <%= 'hide' unless f.object.vlan_operation_mode == :Trunk %>">
+<%= number_f f, :native_vlan_id, label: _('Native VLAN'), label_size: 'col-md-3', size: 'col-md-8', disabled: (f.object.vlan_operation_mode != :Trunk) %>
+<%= text_f f, :allowed_vlan_ids, label: _('Allowed VLANs'), label_size: 'col-md-3', size: 'col-md-8', disabled: (f.object.vlan_operation_mode != :Trunk) %>
+</div>
+<%# If Private mode %>
+<div class="hyperv_vlan_mode hyperv_vlan_private <%= 'hide' unless f.object.vlan_operation_mode == :Private %>">
+<%= select_f f, :vlan_private_mode, hyperv_private_vlan_modes, :first, :last, {},
+  label: _('VLAN private mode'), label_size: 'col-md-3', size: 'col-md-8',
+  onchange: 'hypervVLANPrivateModeChange(this);',
+  disabled: (f.object.vlan_operation_mode != :Private) %>
+<%= number_f f, :primary_vlan_id, label: _('Primary VLAN'), label_size: 'col-md-3', size: 'col-md-8', disabled: (f.object.vlan_operation_mode != :Private) %>
+<%# If Isolated or Community private mode %>
+<div class="hyperv_vlan_private_mode hyperv_vlan_private_singular <%= 'hide' if f.object.vlan_private_mode == :Promiscuous %>">
+<%= number_f f, :secondary_vlan_id, label: _('Secondary VLAN'), label_size: 'col-md-3', size: 'col-md-8', disabled: (f.object.vlan_operation_mode != :Private || f.object.vlan_private_mode == :Promiscuous) %>
+</div>
+<%# If Promiscuous private mode %>
+<div class="hyperv_vlan_private_mode hyperv_vlan_private_plural <%= 'hide' unless f.object.vlan_operation_mode == :Promiscuous %>">
+<%= text_f f, :secondary_vlan_ids, label: _('Secondary VLANs'), label_size: 'col-md-3', size: 'col-md-8', disabled: (f.object.vlan_operation_mode != :Private || f.object.vlan_private_mode != :Promiscuous) %>
+</div>
+</div>
+<% if new_vm && false %>
+<%= checkbox_f f, :is_legacy, { label: _('Legacy Network Adapter'), label_size: 'col-md-3', size: 'col-md-8', }, 'true', 'false' %>
+<% end %>

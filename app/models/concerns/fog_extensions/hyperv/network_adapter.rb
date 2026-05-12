@@ -1,36 +1,100 @@
+# frozen_string_literal: true
+
 module FogExtensions
   module Hyperv
     module NetworkAdapter
       extend ActiveSupport::Concern
-      include ActionView::Helpers::NumberHelper
-
-      def to_s
-        name
-      end
 
       def mac
-        m = mac_address.downcase
-        "#{m[0, 2]}:#{m[2, 2]}:#{m[4, 2]}:#{m[6, 2]}:#{m[8, 2]}:#{m[10, 2]}"
+        return unless mac_address
+
+        # Downcase and split every 2 chars, join with :
+        mac_address.downcase.scan(%r{.{2}}).join(':')
       end
 
       def mac=(m)
-        self.mac_address = m.remove ':'
+        mac_address = m&.upcase&.remove(':')
+        mac_address = Fog::Hyperv::Compute::NetworkAdapter::NIC_FALLBACK_MAC if mac_address.nil? || mac_address.blank?
+        dynamic_mac_address_enabled = mac_address == Fog::Hyperv::Compute::NetworkAdapter::NIC_FALLBACK_MAC
       end
 
-      def network
-        switch_name
+      # VLAN settings
+
+      def vlan_operation_mode
+        vlan_setting.operation_mode
+      end
+      def vlan_operation_mode=(mode)
+        vlan_setting.operation_mode = mode
       end
 
-      def network=(net)
-        self.switch_name = net
+      def vlan_private_mode
+        vlan_setting.private_vlan_mode
+      end
+      def vlan_private_mode=(mode)
+        vlan_setting.private_vlan_mode = mode
       end
 
-      def type
-        is_legacy
+      def access_vlan_id
+        vlan_setting.access_vlan_id
+      end
+      def access_vlan_id=(id)
+        vlan_setting.access_vlan_id = id
       end
 
-      def type=(type)
-        self.is_legacy = type
+      def native_vlan_id
+        vlan_setting.native_vlan_id
+      end
+      def native_vlan_id=(id)
+        vlan_setting.native_vlan_id = id
+      end
+
+      def allowed_vlan_ids
+        vlan_setting.allowed_vlan_id_list
+      end
+      def allowed_vlan_ids=(ids)
+        vlan_setting.allowed_vlan_id_list = ids
+      end
+
+      def primary_vlan_id
+        vlan_setting.primary_vlan_id
+      end
+      def primary_vlan_id=(id)
+        vlan_setting.primary_vlan_id = id
+      end
+
+      def secondary_vlan_id
+        vlan_setting.secondary_vlan_id
+      end
+      def secondary_vlan_id=(id)
+        vlan_setting.secondary_vlan_id = id
+      end
+
+      def secondary_vlan_ids
+        vlan_setting.secondary_vlan_id_list
+      end
+      def secondary_vlan_ids=(ids)
+        vlan_setting.secondary_vlan_id_list = ids
+      end
+
+      def compute_attributes
+        attributes
+          .slice(
+            :id,
+            :switch_id
+          )
+          .merge(
+            {
+              mac:,
+              vlan_operation_mode:,
+              vlan_private_mode:,
+              access_vlan_id:,
+              native_vlan_id:,
+              allowed_vlan_ids:,
+              primary_vlan_id:,
+              secondary_vlan_id:,
+              secondary_vlan_ids:
+            }.compact
+          )
       end
     end
   end

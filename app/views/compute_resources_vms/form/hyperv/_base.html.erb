@@ -13,29 +13,31 @@
     cluster_errors << ex
   end
 -%>
-<% if clusters.any? -%>
-  <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster') %>
-  <% if computers.count > 1 -%>
-    <%= select_f f, :computer_name, computers, :name, :name, {}, label: _('Computer Name'), onload: 'hypervHostChange(this);', onchange: 'hypervHostChange(this);' %>
+<% if clusters.any? %>
+  <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster'), disabled: !new_host %>
+  <% if computers.count > 1 %>
+    <%= select_f f, :computer_name, computers, :name, :name, {}, label: _('Computer Name'), disabled: !new_host, onload: 'hypervHostChange(this);', onchange: 'hypervHostChange(this);' %>
   <% end -%>
 <% end %>
 <div class="clearfix">
-  <div class="col-md-2">&nbsp;</div>
-  <div class="col-md-4 help-block" id="hypervComputerInformation" style="margin-top: -1.25em;">
+  <div class="form-group">
+    <label class="col-md-2 control-label">Available resources</label>
+    <div class="col-md-4 help-block" id="hypervComputerInformation">
 <% computers.each do |host| -%>
-    <table class="hyperv-host-info" style="<%= (host.name == f.object.computer_name) ? '' : 'display: none' %>" data-host="<%= host.name %>">
-      <tbody>
-        <tr>
-          <td>Logical CPU Count:</td>
-          <td style="padding-left:0.5em;"><%= host.logical_processor_count %></td>
-        </tr>
-        <tr>
-          <td>Memory Capacity:</td>
-          <td style="padding-left:0.5em;"><%= number_to_human_size(host.memory_capacity) %></td>
-        </tr>
-      </tbody>
-    </table>
+      <table class="hyperv-host-info" style="<%= (host.name == f.object.computer_name) ? '' : 'display: none' %>" data-host="<%= host.name %>">
+        <tbody>
+          <tr>
+            <td>CPU:</td>
+            <td style="padding-left:0.5em;"><%= host.logical_processor_count %></td>
+          </tr>
+          <tr>
+            <td>Memory:</td>
+            <td style="padding-left:0.5em;"><%= number_to_human_size(host.memory_capacity) %></td>
+          </tr>
+        </tbody>
+      </table>
 <% end -%>
+    </div>
   </div>
 </div>
 
@@ -47,29 +49,23 @@
 <% end -%>
 
 <%
-  generations = [ [1, 'Generation 1 (BIOS)'], [2, 'Generation 2 (UEFI)'] ]
+  generations = [ [:BIOS, 'Generation 1 (BIOS)'], [:UEFI, 'Generation 2 (UEFI)'] ]
 -%>
 <%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
-<% if new_host || f.object.generation == 2 -%>
-<%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot'), disabled: f.object.generation == 1 }, 'true', 'false' %>
+<% if new_host || f.object.generation == :UEFI -%>
+<%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot'), disabled: f.object.generation == :BIOS }, 'true', 'false' %>
 <% end -%>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
-<%= byte_size_f f, :memory_startup, class: 'col-md-2', label: _('Memory (Startup)') %>
+<%= byte_size_f f, :memory_startup, label: _('Memory (Startup)'), label_size: 'col-md-2' %>
 
+<%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory'), onchange: 'hypervDynamicMemoryChange(this);' }, 'true', 'false' %>
 <%= byte_size_f f, :memory_maximum, class: 'col-md-2', label: _('Memory Maximum'), disabled: !f.object.dynamic_memory_enabled %>
 <%= byte_size_f f, :memory_minimum, class: 'col-md-2', label: _('Memory Minimum'), disabled: !f.object.dynamic_memory_enabled %>
-<%= checkbox_f f, :dynamic_memory_enabled, { label: _('Use Dynamic Memory'), onchange: 'hypervDynamicMemoryChange(this);' }, 'true', 'false' %>
 
-<% if new_host -%>
-<%   if compute_resource.servers.new().respond_to? :set_vlan -%>
-<%= text_f f, :vlan, label: _('VLAN'), label_size: 'col-md-2' %>
-<%   end -%>
 <% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
 <%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
-<% end -%>
 
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
-<%= f.hidden_field :id %>
 
 <%= javascript_include_tag("foreman_hyperv/compute_resource_base.js") %>

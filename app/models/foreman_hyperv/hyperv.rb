@@ -3,9 +3,14 @@ module ForemanHyperv
     include ComputeResourceCaching
 
     validates :url, :user, :password, presence: true
+    after_validation :validate_connectivity unless Rails.env.test?
 
     def self.provider_friendly_name
       'Hyper-V'
+    end
+
+    def to_label
+      "#{name} (#{provider_friendly_name})"
     end
 
     def self.available?
@@ -20,20 +25,49 @@ module ForemanHyperv
       true
     end
 
+    def editable_network_interfaces?
+      true
+    end
+
     def capabilities
       [:build]
     end
 
     def test_connection(options = {})
-      super
-      errors[:base] << 'Unable to validate connection' \
-        unless client.valid?
+      validate_connectivity(options)
+    end
+
+    def validate_connectivity(options = {})
+      return unless connection_properties_valid?
+      return false if errors.any?
+
+      client.valid?
     rescue Fog::Hyperv::Errors::ServiceError, ArgumentError, WinRM::WinRMAuthorizationError => e
-      errors[:base] << e.message
+      errors.add(:base, e.message)
+    end
+
+    def connection_valid?
+      return false if url.blank? || user.blank? || password.blank?
+
+      client&.valid?
+    rescue StandardError
+      false
+    end
+
+    def connection_properties_valid?
+      errors[:url].empty? && errors[:user].empty? && errors[:password].empty?
+    end
+
+    def caching_enabled
+      true
     end
 
     def provided_attributes
       super.merge(mac: :mac)
+    end
+
+    def editable_network_interfaces?
+      true
     end
 
     # TODO
@@ -45,86 +79,136 @@ module ForemanHyperv
       (host || hypervisor).memory_capacity
     end
 
-    def associated_host(vm)
-      associate_by('mac', vm.clean_mac_addresses)
+    def available_hypervisors
+      client.hosts.load(
+        cache.cache(:available_hypervisor) do
+          client.hosts.all.map(&:attributes)
+        end
+      )
+    end
+    alias hosts available_hypervisors
+
+    def cluster(name)
+      return nil unless name
+
+      client.clusters.get name
+    end
+
+    def clusters
+      client.clusters.load(
+        cache.cache(:clusters) do
+          _clusters.map(&:attributes)
+        end
+      )
+    end
+
+    def hypervisor
+      client.hosts.new(
+        cache.cache(:hypervisor) do
+          client.hosts.first.attributes
+        end
+      )
+    end
+
+    delegate :servers, to: :client
+
+    def switches(host)
+      host ||= hosts.first
+      client.switches.load(
+        cache.cache(:"#{host.name}-switches") do
+          host.switches.all.map(&:attributes)
+        end
+      )
     end
 
     def new_vm(attr = {})
+      attr.delete :id
       vm = super
-      interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
-      interfaces.map { |i| vm.interfaces << new_interface(i) }
-      volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
-      volumes.map { |v| vm.volumes << new_volume(v) }
+      iface_nested_attrs = nested_attributes_for :interfaces, attr[:interfaces_attributes]
+      vm.network_adapters = iface_nested_attrs.map do |attr|
+        attr.delete :id
+        Fog::Hyperv::Compute::NetworkAdapter.new(attr)
+      end
+      volume_nested_attrs = nested_attributes_for :volumes, attr[:volumes_attributes]
+      vm.hard_drives = volume_nested_attrs.map do |attr|
+        attr.delete :id
+        Fog::Hyperv::Compute::HardDrive.new(attr)
+      end
+      vm.id = nil
       vm
     end
 
-    def stop_vm(uuid)
-      find_vm_by_uuid(uuid).stop force: true
-    end
+    def create_vm(attr = {})
+      attr = vm_instance_defaults.merge(attr.to_hash.deep_symbolize_keys)
+      attr.delete :computer_name if attr[:computer_name].blank?
+      attr.delete :start
 
-    def create_vm(args = {})
-      args = vm_instance_defaults.merge(args.to_hash.deep_symbolize_keys)
-      client.logger.debug "Creating a VM with arguments; #{args}"
+      validate_vm(attr)
+      validate_interfaces(attr)
+      validate_volumes(attr)
 
-      args[:computer_name] = args[:computer_name].presence || '.'
-
-      pre_create = {
-        boot_device: 'NetworkAdapter',
-        computer_name: args[:computer_name],
-        generation: args[:generation].to_i,
-        memory_startup: args[:memory_startup].presence.to_i,
-        name: args[:name],
-        no_vhd: true
-      }
-
-      vm = client.servers.create pre_create
-
-      post_save = {
-        dynamic_memory_enabled: Foreman::Cast.to_bool(args[:dynamic_memory_enabled]),
-        memory_minimum: args[:memory_minimum].presence.to_i,
-        memory_maximum: args[:memory_maximum].presence.to_i,
-        notes: args[:notes].presence,
-        processor_count: args[:processor_count].to_i
-      }
-      post_save.each do |k, v|
-        vm.send("#{k}=".to_sym, v)
+      vm = client.servers.new(
+        name: attr[:name],
+        computer_name: attr[:computer_name],
+        generation: attr[:generation],
+        memory_startup: attr[:memory_startup].to_i,
+      )
+      # TODO: Allow configuring boot device?
+      vm.create boot_device: :NetworkAdapter
+      vm.processor_count = attr[:processor_count].to_i
+      vm.notes = attr[:notes]
+      vm.dynamic_memory_enabled = Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
+      if vm.dynamic_memory_enabled
+        vm.memory_minimum = attr[:memory_minimum].to_i
+        vm.memory_maximum = attr[:memory_maximum].to_i
       end
-
       vm.save if vm.dirty?
 
-      if vm.generation == 2 && args[:secure_boot_enabled].present?
-        f = vm.firmware
-        f.secure_boot = Foreman::Cast.to_bool(args[:secure_boot_enabled]) ? :On : :Off
-        f.save if f.dirty?
-      end
-
-      create_interfaces(vm, args[:interfaces_attributes])
-      create_volumes(vm, args[:volumes_attributes])
-
-      vm.set_vlan(args[:vlan].to_i) if args[:vlan].presence && vm.respond_to?(:set_vlan)
-
-      vm
-    rescue StandardError => e
-      vm.stop turn_off: true
-
-      raise e
-    end
-
-    def save_vm(uuid, attr)
-      vm = find_vm_by_uuid(uuid)
-      client.logger.debug "Saving a VM with arguments; #{attr}"
-      attr.each do |k, v|
-        vm.send("#{k}=".to_sym, v) if vm.respond_to?("#{k}=".to_sym)
-      end
-
-      if vm.generation == 2 && attr[:secure_boot_enabled].present?
+      if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
         f = vm.firmware
         f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
       end
 
-      update_interfaces(vm, attr[:interfaces_attributes])
-      update_volumes(vm, attr[:volumes_attributes])
+      create_interfaces(vm, attr)
+      create_volumes(vm, attr)
+
+      vm.start if attr[:boot]
+      vm
+    rescue StandardError => e
+      if vm
+        vm.stop
+        vm.hard_drives.each { |hdd| hdd.destroy(underlying: true) }
+        vm.destroy
+      end
+
+      raise e
+    end
+
+    def save_vm(uuid, attr)
+      validate_interfaces(attr)
+      validate_volumes(attr)
+
+      attr.delete :start
+
+      vm = find_vm_by_uuid(uuid)
+      logger.debug "Updating VM #{vm} with arguments; #{attr}"
+
+      vm.processor_count = attr[:processor_count].to_i
+      vm.notes = attr[:notes].presence
+      vm.dynamic_memory_enabled = Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
+      if vm.dynamic_memory_enabled
+        vm.memory_minimum = attr[:memory_minimum].to_i
+        vm.memory_maximum = attr[:memory_maximum].to_i
+      end
+      if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
+        f = vm.firmware
+        f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
+        f.save if f.dirty?
+      end
+
+      update_interfaces(vm, attr)
+      update_volumes(vm, attr)
 
       vm.save if vm.dirty?
       vm
@@ -132,10 +216,8 @@ module ForemanHyperv
 
     def destroy_vm(uuid)
       vm = find_vm_by_uuid(uuid)
-      vm.stop force: true if vm.ready?
-      vm.hard_drives.each do |hd|
-        hd.vhd.destroy if hd.path
-      end
+      vm.stop turn_off: true
+      vm.hard_drives.each { |hdd| hdd.destroy(underlying: true) }
       # TODO: Remove the empty VM folder
       vm.destroy
     rescue ActiveRecord::RecordNotFound, Fog::Errors::NotFound
@@ -144,52 +226,19 @@ module ForemanHyperv
     end
 
     def new_interface(attr = {})
-      client.network_adapters.new attr
+      Fog::Hyperv::Compute::NetworkAdapter.new name: 'Network Adapter', **attr
     end
 
     def new_volume(attr = {})
-      client.vhds.new attr
+      basename = attr.delete(:basename) { 'Disk' }
+      size = attr.delete(:size)
+
+      vhd = client.vhds.new({ basename:, size: }.compact)
+      Fog::Hyperv::Compute::HardDrive.new vhd:, **attr
     end
 
     def new_cdrom(attr = {})
-      client.dvd_drives.new attr
-    end
-
-    def editable_network_interfaces?
-      true
-    end
-
-    def available_hypervisors
-      cache.cache(:available_hypervisor) do
-        client.hosts.all
-      end
-    end
-    alias hosts available_hypervisors
-
-    def cluster(name)
-      return nil unless name
-      cache.cache("clusters-#{name}".to_sym) do
-        clusters.find { |c| c.name == name }
-      end
-    end
-
-    def clusters
-      # cache.cache(:clusters) do
-        _clusters
-      # end
-    end
-
-    def hypervisor
-      cache.cache(:hypervisor) do
-        client.hosts.first
-      end
-    end
-
-    delegate :servers, to: :client
-
-    def switches(host)
-      host ||= hosts.first
-      host.switches
+      Fog::Hyperv::Compute::DvdDrive.new attr
     end
 
     protected
@@ -205,10 +254,9 @@ module ForemanHyperv
 
     def vm_instance_defaults
       super.merge(
-        generation:      1,
-        memory_startup:  512.megabytes,
+        generation:      2,
+        memory_startup:  1024.megabytes,
         processor_count: 1,
-        boot_device:     'NetworkAdapter'
       )
     end
 
@@ -222,77 +270,147 @@ module ForemanHyperv
       []
     end
 
-    def create_interfaces(vm, attrs)
-      vm.network_adapters.each(&:destroy)
+    def validate_vm(attr)
+      raise Foreman::Exception, 'VM lacks name' unless attr[:name].presence
+      raise Foreman::Exception, 'VM lacks generation' unless attr[:generation].presence
+      raise Foreman::Exception, 'VM lacks memory' unless attr[:memory_startup].to_i > 0
+      raise Foreman::Exception, 'VM lacks CPUs' unless attr[:processor_count].to_i > 0
 
-      interfaces = nested_attributes_for :interfaces, attrs
-      client.logger.debug "Building interfaces with: #{interfaces}"
+      if Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
+        raise Foreman::Exception, 'VM lacks memory minimum' unless attr[:memory_minimum].to_i > 0
+        raise Foreman::Exception, 'VM lacks memory maximum' unless attr[:memory_maximum].to_i > 0
+      end
+    end
+
+    def validate_interfaces(attr)
+      interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       interfaces.each do |iface|
-        nic = vm.network_adapters.new name: iface[:name], switch_name: iface[:network]
-        if iface[:mac]
-          nic.mac = iface[:mac]
-          nic.dynamic_mac_address_enabled = false
-        end
-        if vm.generation == 1 && iface[:type].present?
-          nic.is_legacy = Foreman::Cast.to_bool(iface[:type])
-        end
+        next if iface[:_delete] == '1'
+      end
+    end
+
+    def create_interfaces(vm, attr)
+      interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
+      logger.debug "Creating interfaces with: #{interfaces}"
+
+      first_provisioned = false
+      nics = vm.network_adapters.all(_return_fields: %i[id computer_name vm_id])
+      interfaces.each do |iface|
+        iface.delete :id
+        mac = iface.delete :mac
+
+        # The VM is pre-created with one NIC regardless of given creation options, so configure that one first
+        nic = nics.first unless first_provisioned
+        first_provisioned = true
+
+        nic ||= vm.network_adapters.new
+        nic.attributes.merge!(iface.select { |_, v| v.present? })
+        nic.mac = mac
+        nic.is_legacy = Foreman::Cast.to_bool(iface[:is_legacy]) if vm.generation == :BIOS && iface[:is_legacy].present?
         nic.save
       end
 
-      # Populate the MAC addresses
+      return unless vm.network_adapters.all(_return_fields: %i[dynamic_mac_address_enabled]).any? { |nic| nic.dynamic_mac_address_enabled }
+
+      # Populate all non-populated MAC addresses
       vm.start
       vm.stop turn_off: true
 
-      vm.network_adapters.reload
-      vm.network_adapters.each do |nic|
+      vm.network_adapters.reload.each do |nic|
         nic.dynamic_mac_address_enabled = false
         nic.save if nic.dirty?
       end
     end
 
-    def create_volumes(vm, attrs)
-      volumes = nested_attributes_for :volumes, attrs
-      client.logger.debug "Building volumes with: #{volumes}"
-      volumes.each do |vol|
-        vhd = vm.vhds.create path: vm.folder_name + '\\' + vol[:path], size: vol[:size]
-        vm.hard_drives.create path: vhd.path
-      end
-      vm.hard_drives.reload
-    end
+    def update_interfaces(vm, attr)
+      interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
+      logger.debug "Updating interfaces with: #{interfaces}"
 
-    def update_interfaces(vm, attrs)
-      interfaces = nested_attributes_for :interfaces, attrs
-      client.logger.debug "Updating interfaces with: #{interfaces}"
       interfaces.each do |interface|
-        if interface[:id].blank? && interface[:_delete] != '1'
-          nic = vm.network_adapters.create interface
-          nic.dynamic_mac_address_enabled = false if nic.mac
-          nic.save
-        elsif interface[:id].present?
-          nic = vm.network_adapters.find { |n| n.id == interface[:id] }
+        if interface[:id].present?
+          nic = vm.network_adapters.get interface[:id]
           if interface[:_delete] == '1'
             nic.delete
           else
-            interface.each do |k, v|
-              nic.send("#{k}=".to_sym, v)
+            interface.delete :id
+            interface.delete :_delete
+            interface.select { |_, v| v.present? }.each do |k, v|
+              nic.send(:"#{k}=", v)
             end
             nic.save if nic.dirty?
           end
+        elsif interface[:_delete] != '1'
+          interface.delete :id
+          interface.delete :_delete
+          mac = interface.delete :mac
+
+          nic = vm.network_adapters.new interface.select { |_, v| v.present? }
+          nic.mac = mac
+          nic.save
         end
       end
     end
 
-    def update_volumes(vm, attrs)
-      volumes = nested_attributes_for :volumes, attrs
-      client.logger.debug "Updating volumes with: #{volumes}"
-      volumes.each do |volume|
-        if volume[:_delete] == '1' && volume[:id].present?
-          hd = vm.hard_drives.find { |h| h.id == volume[:id] }
-          hd.vhd.destroy
-          hd.destroy
-        end
-        vm.hard_drives.create(path: volume[:path], size: volume[:size]) if volume[:id].blank? && volume[:_delete] != '1'
+    def validate_volumes(attr)
+      volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
+      volumes.each do |vol|
+        next if vol[:_delete] == '1'
+
+        raise Foreman::Exception, 'Volume lacks name' unless vol[:basename].presence
+        raise Foreman::Exception, 'Volume name should not include a file extension' if vol[:basename] =~ /\.vhd[sx]?$/
+        raise Foreman::Exception, 'Volume lacks size' unless vol[:size_bytes].to_i > 0
       end
+      raise Foreman::Exception, 'Volume names need to be unique' if volumes.group_by { |vol| vol[:basename].downcase }.any? { |k, v| v.count > 1 }
+    end
+
+    def create_volumes(vm, attr)
+      volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
+      logger.debug "Creating volumes with: #{volumes}"
+      volumes.each do |vol|
+        vhd = vm.vhds.create basename: vol[:basename], size: vol[:size_bytes].to_i
+        vm.hard_drives.create vhd:
+      end
+    end
+
+    def update_volumes(vm, attr)
+      volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
+      logger.debug "Updating volumes with: #{volumes}"
+      volumes.each do |volume|
+        if volume[:id].present?
+          hd = vm.hard_drives.get volume[:id]
+          if volume[:_delete] == '1'
+            hd.destroy(underlying: true)
+          else
+            vhd = hd.vhd
+            vhd.size = volume[:size_bytes].to_i
+            vhd.save
+          end
+        elsif volume[:_delete] != '1'
+          vhd = vm.vhds.create basename: volume[:basename], size: volume[:size_bytes].to_i
+          vm.hard_drives.create path: vhd.path
+        end
+      end
+    end
+
+    def set_vm_volumes_attributes(vm, vm_attrs)
+      volumes = vm.hard_drives || []
+      vm_attrs[:volumes_attributes] = volumes.each_with_index.to_h do |volume, index|
+        [index.to_s, volume.compute_attributes]
+      end
+      vm_attrs
+    end
+
+    def set_vm_interfaces_attributes(vm, vm_attrs)
+      interfaces = vm.interfaces || []
+      vm_attrs[:interfaces_attributes] = interfaces.each_with_index.to_h do |interface, index|
+        interface_attrs = {
+          mac: interface.mac,
+          compute_attributes: interface.compute_attributes
+        }
+        [index.to_s, interface_attrs]
+      end
+
+      vm_attrs
     end
   end
 end

@@ -4,8 +4,6 @@ module FogExtensions
       extend ActiveSupport::Concern
       include ActionView::Helpers::NumberHelper
 
-      attr_accessor :start
-
       def to_s
         name
       end
@@ -14,12 +12,8 @@ module FogExtensions
         name.gsub(/[^0-9A-Za-z.\-]/, '_')
       end
 
-      def mac(m = mac_addresses.first)
-        "#{m[0, 2]}:#{m[2, 2]}:#{m[4, 2]}:#{m[6, 2]}:#{m[8, 2]}:#{m[10, 2]}".downcase
-      end
-
-      def clean_mac_addresses
-        network_adapters.map { |n| mac(n.mac_address) }
+      def mac
+        network_adapters.first.mac
       end
 
       def interfaces
@@ -27,11 +21,7 @@ module FogExtensions
       end
 
       def volumes
-        vhds
-      end
-
-      def persisted?
-        identity.present?
+        hard_drives
       end
 
       def interfaces_attributes=(_attributes)
@@ -40,11 +30,47 @@ module FogExtensions
 
       def volumes_attributes=(_attributes); end
 
-      def vlan; end
+      # Override fog configuration with explicit cluster_name handling
+      def cluster
+        @cluster
+      end
 
-      def vlan=(_vlan); end
+      def cluster_name
+        cluster&.name
+      end
+
+      def cluster_name=(name)
+        @cluster = service.clusters.get(name)
+      end
+      #
+
+      def vlan
+        nic = network_adapters.first
+
+        nic.access_vlan_id || nic.native_vlan_id || nic.primary_vlan_id
+      end
+
+      def vlan=(vlan)
+        logger.warn "using vlan=#{vlan.inspect} on Hyper-V VM, this can lead to unexpected results"
+        nic = network_adapters.first
+        if vlan.present? && vlan.to_i > 0
+          nic.vlan_operation_mode = :Access if nic.vlan_operation_mode == :Untagged
+          case nic.vlan_operation_mode
+          when :Access
+            nic.access_vlan_id = vlan
+          when :Trunk
+            nic.native_vlan_id = vlan
+          when :Private
+            nic.primary_vlan_id = vlan
+          end
+        else
+          nic.vlan_operation_mode = :Untagged
+        end
+      end
 
       def secure_boot_enabled=(enabled)
+        return if generation != :UEFI
+
         @secure_boot = enabled
         return unless persisted?
 
@@ -52,27 +78,10 @@ module FogExtensions
       end
 
       def secure_boot_enabled
-        return false if generation == 1
+        return false if generation != :UEFI
         return @secure_boot unless persisted?
 
         firmware.secure_boot == :On
-      end
-
-      def reset
-        restart(force: true)
-      end
-
-      def state
-        attributes[:state].to_s.upcase
-      end
-
-      def stop
-        requires :name, :computer_name
-        service.stop_vm options.merge(
-          name: name,
-          computer_name: computer_name,
-          force: true
-        )
       end
 
       def vm_description
@@ -83,10 +92,9 @@ module FogExtensions
 
       def select_nic(fog_nics, nic)
         nic_attrs = nic.compute_attributes
-        logger.debug "select_nic(#{fog_nics}, #{nic}[#{nic_attrs}])"
         match =   fog_nics.detect { |fn| fn.id == nic_attrs['id'] } # Check the id
         match ||= fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
-        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['network'] } # Fall back to the switch
+        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['switch_name'] } # Fall back to the switch name
         match
       end
     end
