@@ -151,18 +151,15 @@ module ForemanHyperv
         name: attr[:name],
         computer_name: attr[:computer_name],
         generation: attr[:generation],
+        dynamic_memory_enabled: Foreman::Cast.to_bool(attr[:dynamic_memory_enabled]),
         memory_startup: attr[:memory_startup].to_i,
+        memory_minimum: attr[:memory_minimum].to_i,
+        memory_maximum: attr[:memory_maximum].to_i,
+        processor_count: attr[:processor_count].to_i,
+        notes: attr[:notes]
       )
       # TODO: Allow configuring boot device?
       vm.create boot_device: :NetworkAdapter
-      vm.processor_count = attr[:processor_count].to_i
-      vm.notes = attr[:notes]
-      vm.dynamic_memory_enabled = Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
-      if vm.dynamic_memory_enabled
-        vm.memory_minimum = attr[:memory_minimum].to_i
-        vm.memory_maximum = attr[:memory_maximum].to_i
-      end
-      vm.save if vm.dirty?
 
       if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
         f = vm.firmware
@@ -173,7 +170,7 @@ module ForemanHyperv
       create_interfaces(vm, attr)
       create_volumes(vm, attr)
 
-      vm.start if attr[:boot]
+      vm.start if attr[:start] == '1'
       vm
     rescue StandardError => e
       if vm
@@ -294,13 +291,12 @@ module ForemanHyperv
       logger.debug "Creating interfaces with: #{interfaces}"
 
       first_provisioned = false
-      nics = vm.network_adapters.all(_return_fields: %i[id computer_name vm_id])
       interfaces.each do |iface|
         iface.delete :id
         mac = iface.delete :mac
 
         # The VM is pre-created with one NIC regardless of given creation options, so configure that one first
-        nic = nics.first unless first_provisioned
+        nic = vm.network_adapters.first unless first_provisioned
         first_provisioned = true
 
         nic ||= vm.network_adapters.new
@@ -310,7 +306,7 @@ module ForemanHyperv
         nic.save
       end
 
-      return unless vm.network_adapters.all(_return_fields: %i[dynamic_mac_address_enabled]).any? { |nic| nic.dynamic_mac_address_enabled }
+      return unless vm.network_adapters.all(_return_fields: %i[dynamic_mac_address_enabled]).any?(&:dynamic_mac_address_enabled)
 
       # Populate all non-populated MAC addresses
       vm.start
@@ -330,7 +326,7 @@ module ForemanHyperv
         if interface[:id].present?
           nic = vm.network_adapters.get interface[:id]
           if interface[:_delete] == '1'
-            nic.delete
+            nic.destroy
           else
             interface.delete :id
             interface.delete :_delete
@@ -343,10 +339,9 @@ module ForemanHyperv
           interface.delete :id
           interface.delete :_delete
           mac = interface.delete :mac
+          interface[:mac_address] = mac.upcase.delete(':')
 
-          nic = vm.network_adapters.new interface.select { |_, v| v.present? }
-          nic.mac = mac
-          nic.save
+          vm.network_adapters.create interface.select { |_, v| v.present? }
         end
       end
     end
@@ -383,7 +378,7 @@ module ForemanHyperv
           else
             vhd = hd.vhd
             vhd.size = volume[:size_bytes].to_i
-            vhd.save
+            vhd.save if vhd.dirty?
           end
         elsif volume[:_delete] != '1'
           vhd = vm.vhds.create basename: volume[:basename], size: volume[:size_bytes].to_i

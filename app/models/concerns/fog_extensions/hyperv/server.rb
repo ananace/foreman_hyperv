@@ -92,10 +92,33 @@ module FogExtensions
 
       def select_nic(fog_nics, nic)
         nic_attrs = nic.compute_attributes
-        match =   fog_nics.detect { |fn| fn.id == nic_attrs['id'] } # Check the id
-        match ||= fog_nics.detect { |fn| fn.name == nic_attrs['name'] } # Check the name
-        match ||= fog_nics.detect { |fn| fn.switch_name == nic_attrs['switch_name'] } # Fall back to the switch name
-        match
+
+        # Match for exact data
+        match   = fog_nics.detect { |fn| fn.id == nic_attrs['id'].presence }
+        match ||= fog_nics.detect { |fn| fn.name == nic_attrs['name'].presence }
+        return match if match
+
+        # Match for networking configuration
+        potential = fog_nics.select do |fn|
+          fn.switch_id == nic_attrs['switch_id'].presence || fn.switch_name == nic_attrs['switch_name'].presence
+        end
+        potential.select! { |fn| fn.vlan_operation_mode == nic_attrs['vlan_operation_mode'] }
+        if nic_attrs['vlan_operation_mode'] == 'Access'
+          potential.select! { |fn| fn.access_vlan_id.to_s == nic_attrs['access_vlan_id'] }
+        elsif nic_attrs['vlan_operation_mode'] == 'Private'
+          potential.select! { |fn| fn.vlan_private_mode == nic_attrs['vlan_private_mode'] }
+          potential.select! { |fn| fn.primary_vlan_id.to_s == nic_attrs['primary_vlan_id'].to_s } \
+            if nic_attrs['primary_vlan_id'].present?
+
+          if nic_attrs['vlan_private_mode'] == 'Promiscuous'
+            # TODO
+          else
+            potential.select! { |fn| fn.secondary_vlan_id.to_s == nic_attrs['secondary_vlan_id'].to_s } \
+              if nic_attrs['secondary_vlan_id'].present?
+          end
+        end
+
+        potential.first
       end
     end
   end

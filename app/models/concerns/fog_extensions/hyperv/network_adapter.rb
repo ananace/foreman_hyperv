@@ -13,9 +13,9 @@ module FogExtensions
       end
 
       def mac=(m)
-        mac_address = m&.upcase&.remove(':')
+        mac_address = m&.upcase&.delete(':')
         mac_address = Fog::Hyperv::Compute::NetworkAdapter::NIC_FALLBACK_MAC if mac_address.nil? || mac_address.blank?
-        dynamic_mac_address_enabled = mac_address == Fog::Hyperv::Compute::NetworkAdapter::NIC_FALLBACK_MAC
+        dynamic_mac_address_enabled = (mac_address.to_i(16) == 0)
       end
 
       # VLAN settings
