@@ -127,12 +127,20 @@ module ForemanHyperv
       iface_nested_attrs = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       vm.network_adapters = iface_nested_attrs.map do |attr|
         attr.delete :id
-        Fog::Hyperv::Compute::NetworkAdapter.new(attr)
+        Fog::Hyperv::Compute::NetworkAdapter.new(service: vm.service, vm:).tap do |nic|
+          attr.select { |_, v| v.present? }.each do |k, v|
+            nic.send(:"#{k}=", v)
+          end
+        end
       end
       volume_nested_attrs = nested_attributes_for :volumes, attr[:volumes_attributes]
       vm.hard_drives = volume_nested_attrs.map do |attr|
         attr.delete :id
-        Fog::Hyperv::Compute::HardDrive.new(attr)
+        Fog::Hyperv::Compute::HardDrive.new(service: vm.service, vm:).tap do |hdd|
+          attr.select { |_, v| v.present? }.each do |k, v|
+            hdd.send(:"#{k}=", v)
+          end
+        end
       end
       vm.id = nil
       vm
@@ -182,7 +190,8 @@ module ForemanHyperv
       raise e
     end
 
-    def save_vm(uuid, attr)
+    def save_vm(uuid, web_attr)
+      attr = web_attr.deep_symbolize_keys
       validate_interfaces(attr)
       validate_volumes(attr)
 
@@ -222,8 +231,17 @@ module ForemanHyperv
       true
     end
 
+    # def console(uuid)
+    #   vm = find_vm_by_uuid(uuid)
+    #
+    #   {
+    #     type: 'rdp',
+    #     host: vm.computer.fully_qualified_domain_name,
+    #   }
+    # end
+
     def new_interface(attr = {})
-      Fog::Hyperv::Compute::NetworkAdapter.new name: 'Network Adapter', **attr
+      Fog::Hyperv::Compute::NetworkAdapter.new attr
     end
 
     def new_volume(attr = {})
@@ -238,6 +256,35 @@ module ForemanHyperv
       Fog::Hyperv::Compute::DvdDrive.new attr
     end
 
+    def vm_instance_defaults
+      super.merge(
+        generation:      2,
+        memory_startup:  1024.megabytes,
+        processor_count: 1,
+        interfaces:      [new_interface]
+      )
+    end
+
+    def set_vm_volumes_attributes(vm, vm_attrs)
+      volumes = vm.hard_drives || []
+      vm_attrs[:volumes_attributes] = volumes.each_with_index.to_h do |volume, index|
+        [index.to_s, volume.compute_attributes]
+      end
+      vm_attrs
+    end
+
+    def set_vm_interfaces_attributes(vm, vm_attrs)
+      interfaces = vm.interfaces || []
+      vm_attrs[:interfaces_attributes] = interfaces.each_with_index.to_h do |interface, index|
+        interface_attrs = {
+          mac: interface.mac,
+          compute_attributes: interface.compute_attributes
+        }
+        [index.to_s, interface_attrs]
+      end
+      vm_attrs
+    end
+
     protected
 
     def client
@@ -249,13 +296,7 @@ module ForemanHyperv
       )
     end
 
-    def vm_instance_defaults
-      super.merge(
-        generation:      2,
-        memory_startup:  1024.megabytes,
-        processor_count: 1,
-      )
-    end
+    private
 
     def _clusters
       if client.respond_to? :supports_clusters?
@@ -283,6 +324,8 @@ module ForemanHyperv
       interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       interfaces.each do |iface|
         next if iface[:_delete] == '1'
+
+        # raise Foreman::Exception, 'Interface lacks ID' if iface[:_delete] == '0' && !iface[:identity].present?
       end
     end
 
@@ -292,17 +335,16 @@ module ForemanHyperv
 
       first_provisioned = false
       interfaces.each do |iface|
-        iface.delete :id
-        mac = iface.delete :mac
-
         # The VM is pre-created with one NIC regardless of given creation options, so configure that one first
         nic = vm.network_adapters.first unless first_provisioned
         first_provisioned = true
 
         nic ||= vm.network_adapters.new
-        nic.attributes.merge!(iface.select { |_, v| v.present? })
-        nic.mac = mac
-        nic.is_legacy = Foreman::Cast.to_bool(iface[:is_legacy]) if vm.generation == :BIOS && iface[:is_legacy].present?
+        iface.except(:identity).select { |_, v| v.present? }.each do |k, v|
+          nic.send(:"#{k}=", v)
+        end
+        # nic.is_legacy = Foreman::Cast.to_bool(iface[:is_legacy]) if vm.generation == :BIOS && iface[:is_legacy].present?
+        # logger.debug "Creating interface with #{iface.inspect} - #{nic.inspect}\n#{nic.vlan_setting.inspect}"
         nic.save
       end
 
@@ -323,25 +365,23 @@ module ForemanHyperv
       logger.debug "Updating interfaces with: #{interfaces}"
 
       interfaces.each do |interface|
-        if interface[:id].present?
-          nic = vm.network_adapters.get interface[:id]
+        if interface[:identity].present?
+          nic = vm.network_adapters.get interface[:identity]
           if interface[:_delete] == '1'
             nic.destroy
           else
-            interface.delete :id
-            interface.delete :_delete
-            interface.select { |_, v| v.present? }.each do |k, v|
+            interface.except(:identity, :_delete).select { |_, v| v.present? }.each do |k, v|
               nic.send(:"#{k}=", v)
             end
             nic.save if nic.dirty?
           end
         elsif interface[:_delete] != '1'
-          interface.delete :id
-          interface.delete :_delete
-          mac = interface.delete :mac
-          interface[:mac_address] = mac.upcase.delete(':')
+          nic = vm.network_adapters.new
+          interface.except(:identity, :_delete).select { |_, v| v.present? }.each do |k, v|
+            nic.send(:"#{k}=", v)
+          end
 
-          vm.network_adapters.create interface.select { |_, v| v.present? }
+          nic.save
         end
       end
     end
@@ -385,27 +425,6 @@ module ForemanHyperv
           vm.hard_drives.create path: vhd.path
         end
       end
-    end
-
-    def set_vm_volumes_attributes(vm, vm_attrs)
-      volumes = vm.hard_drives || []
-      vm_attrs[:volumes_attributes] = volumes.each_with_index.to_h do |volume, index|
-        [index.to_s, volume.compute_attributes]
-      end
-      vm_attrs
-    end
-
-    def set_vm_interfaces_attributes(vm, vm_attrs)
-      interfaces = vm.interfaces || []
-      vm_attrs[:interfaces_attributes] = interfaces.each_with_index.to_h do |interface, index|
-        interface_attrs = {
-          mac: interface.mac,
-          compute_attributes: interface.compute_attributes
-        }
-        [index.to_s, interface_attrs]
-      end
-
-      vm_attrs
     end
   end
 end

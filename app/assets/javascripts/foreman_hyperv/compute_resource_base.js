@@ -44,29 +44,35 @@ function hypervHostChange(item) {
 }
 
 function hypervVLANModeChange(item) {
-  var fieldset = [...document.querySelectorAll('fieldset.compute_attributes')].filter(el => el.contains(item))[0];
+  var parent = [...document.querySelectorAll('fieldset.compute_attributes')].filter(el => el.contains(item))[0];
+  if (parent == undefined) {
+    parent = [...document.querySelectorAll('div.fields')].filter(el => el.contains(item))[0];
+  }
 
-  $(fieldset.querySelectorAll('.hyperv_vlan_mode')).hide();
-  $(fieldset.querySelectorAll('.hyperv_vlan_mode input')).attr('disabled', true);
-  $(fieldset.querySelectorAll('.hyperv_vlan_mode select')).attr('disabled', true);
+  $(parent.querySelectorAll('[data-hyperv-vlan-mode]')).hide();
+  $(parent.querySelectorAll('[data-hyperv-vlan-mode] input')).attr('disabled', true);
+  $(parent.querySelectorAll('[data-hyperv-vlan-mode] select')).attr('disabled', true);
 
-  var id = '.hyperv_vlan_mode.hyperv_vlan_' + $(item).val().toLowerCase();
-  $(fieldset.querySelectorAll(id)).show();
-  $(fieldset.querySelectorAll(id + ' input')).removeAttr('disabled');
-  $(fieldset.querySelectorAll(id + ' select')).removeAttr('disabled');
+  var id = '[data-hyperv-vlan-mode="' + $(item).val().toLowerCase() + '"]';
+  $(parent.querySelectorAll(id)).show();
+  $(parent.querySelectorAll(id + ' input')).removeAttr('disabled');
+  $(parent.querySelectorAll(id + ' select')).removeAttr('disabled');
 }
 
 function hypervVLANPrivateModeChange(item) {
-  var fieldset = [...document.querySelectorAll('fieldset.compute_attributes')].filter(el => el.contains(item))[0];
+  var parent = [...document.querySelectorAll('fieldset.compute_attributes')].filter(el => el.contains(item))[0];
+  if (parent == undefined) {
+    parent = [...document.querySelectorAll('div.fields')].filter(el => el.contains(item))[0];
+  }
 
-  $(fieldset.querySelectorAll('.hyperv_vlan_private_mode')).hide();
-  $(fieldset.querySelectorAll('.hyperv_vlan_private_mode input')).attr('disabled', true);
+  $(parent.querySelectorAll('[data-hyperv-vlan-private-mode]')).hide();
+  $(parent.querySelectorAll('[data-hyperv-vlan-private-mode] input')).attr('disabled', true);
 
   if ($(item).val() == 'Promiscuous') {
-    var id = '.hyperv_vlan_private_mode.hyperv_vlan_private_plural';
+    var id = '[data-hyperv-vlan-private-mode="plural"]';
   } else {
-    var id = '.hyperv_vlan_private_mode.hyperv_vlan_private_singular';
+    var id = '[data-hyperv-vlan-private-mode="singular"]';
   }
-  $(fieldset.querySelectorAll(id)).show();
-  $(fieldset.querySelectorAll(id + ' input')).removeAttr('disabled');
+  $(parent.querySelectorAll(id)).show();
+  $(parent.querySelectorAll(id + ' input')).removeAttr('disabled');
 }

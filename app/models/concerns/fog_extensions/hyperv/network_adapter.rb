@@ -28,6 +28,8 @@ module FogExtensions
       end
 
       def vlan_private_mode
+        return nil if vlan_setting.private_vlan_mode == :Unknown
+
         vlan_setting.private_vlan_mode
       end
       def vlan_private_mode=(mode)
@@ -35,6 +37,8 @@ module FogExtensions
       end
 
       def access_vlan_id
+        return nil if vlan_setting.access_vlan_id.zero?
+
         vlan_setting.access_vlan_id
       end
       def access_vlan_id=(id)
@@ -42,6 +46,8 @@ module FogExtensions
       end
 
       def native_vlan_id
+        return nil if vlan_setting.native_vlan_id.zero?
+
         vlan_setting.native_vlan_id
       end
       def native_vlan_id=(id)
@@ -49,13 +55,17 @@ module FogExtensions
       end
 
       def allowed_vlan_ids
-        vlan_setting.allowed_vlan_id_list
+        return nil unless vlan_setting.allowed_vlan_id_list&.any?
+
+        vlan_setting.allowed_vlan_id_list.join ', '
       end
       def allowed_vlan_ids=(ids)
-        vlan_setting.allowed_vlan_id_list = ids
+        vlan_setting.allowed_vlan_id_list = ids.split(',').map(&:to_i)
       end
 
       def primary_vlan_id
+        return nil if vlan_setting.primary_vlan_id.zero?
+
         vlan_setting.primary_vlan_id
       end
       def primary_vlan_id=(id)
@@ -63,6 +73,8 @@ module FogExtensions
       end
 
       def secondary_vlan_id
+        return nil if vlan_setting.secondary_vlan_id.zero?
+
         vlan_setting.secondary_vlan_id
       end
       def secondary_vlan_id=(id)
@@ -70,10 +82,12 @@ module FogExtensions
       end
 
       def secondary_vlan_ids
-        vlan_setting.secondary_vlan_id_list
+        return nil unless vlan_setting.secondary_vlan_id_list&.any?
+
+        vlan_setting.secondary_vlan_id_list.join ', '
       end
       def secondary_vlan_ids=(ids)
-        vlan_setting.secondary_vlan_id_list = ids
+        vlan_setting.secondary_vlan_id_list = ids.split(',').map(&:to_i)
       end
 
       def compute_attributes
@@ -84,7 +98,6 @@ module FogExtensions
           )
           .merge(
             {
-              mac:,
               vlan_operation_mode:,
               vlan_private_mode:,
               access_vlan_id:,

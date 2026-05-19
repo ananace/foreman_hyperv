@@ -47,13 +47,15 @@ module ForemanHyperv
       require 'fog/hyperv'
 
       require 'fog/hyperv/compute/models/server'
-      Fog::Hyperv::Compute::Server.send(:prepend, ::FogExtensions::Hyperv::Server)
+      Fog::Hyperv::Compute::Server.prepend ::FogExtensions::Hyperv::Server
 
       require 'fog/hyperv/compute/models/network_adapter'
-      Fog::Hyperv::Compute::NetworkAdapter.send(:prepend, ::FogExtensions::Hyperv::NetworkAdapter)
+      Fog::Hyperv::Compute::NetworkAdapter.prepend ::FogExtensions::Hyperv::NetworkAdapter
 
       require 'fog/hyperv/compute/models/hard_drive'
-      Fog::Hyperv::Compute::HardDrive.send(:prepend, ::FogExtensions::Hyperv::HardDrive)
+      Fog::Hyperv::Compute::HardDrive.prepend ::FogExtensions::Hyperv::HardDrive
+
+      Nic::Managed.prepend ::ForemanHyperv::NicManagedExtensions
     end
     #
     # initializer 'foreman_hyperv.register_gettext', after: :load_config_initializers do

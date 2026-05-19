@@ -7,7 +7,7 @@ module FogExtensions
       def size_bytes=(new_size)
         raise ArgumentError, "Can't modify a physical disk" if disk
 
-        vhd ||= Fog::Hyperv::Compute::Vhd.new unless persisted?
+        self.vhd ||= Fog::Hyperv::Compute::Vhd.new unless persisted?
         vhd.size = new_size
       end
 
@@ -18,7 +18,7 @@ module FogExtensions
       def basename=(new_basename)
         raise ArgumentError, "Can't modify a physical disk" if disk
 
-        vhd ||= Fog::Hyperv::Compute::Vhd.new unless persisted?
+        self.vhd ||= Fog::Hyperv::Compute::Vhd.new unless persisted?
         vhd.basename = new_basename
       end
 
