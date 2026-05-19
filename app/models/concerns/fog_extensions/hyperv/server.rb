@@ -135,6 +135,7 @@ module FogExtensions
 
         # Store Hyper-V ID in compute attributes
         nic.compute_attributes['identity'] = match.id
+
         match
       end
     end

@@ -7,6 +7,7 @@ module FogExtensions
 
       def mac
         return unless mac_address
+        return if mac_address.to_i(16) == 0
 
         # Downcase and split every 2 chars, join with :
         mac_address.downcase.scan(%r{.{2}}).join(':')
@@ -60,6 +61,7 @@ module FogExtensions
         vlan_setting.allowed_vlan_id_list.join ', '
       end
       def allowed_vlan_ids=(ids)
+        ids ||= ''
         vlan_setting.allowed_vlan_id_list = ids.split(',').map(&:to_i)
       end
 
@@ -87,6 +89,7 @@ module FogExtensions
         vlan_setting.secondary_vlan_id_list.join ', '
       end
       def secondary_vlan_ids=(ids)
+        ids ||= ''
         vlan_setting.secondary_vlan_id_list = ids.split(',').map(&:to_i)
       end
 

@@ -1,4 +1,5 @@
 <%= f.hidden_field :identity %>
+
 <%= select_f f, :switch_id, hyperv_networks(compute_resource), :first, :last, { include_blank: true },
                 label: _('Network switch'), label_size: 'col-md-3', size: 'col-md-8' %>
 

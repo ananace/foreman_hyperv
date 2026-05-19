@@ -55,7 +55,7 @@ module ForemanHyperv
       require 'fog/hyperv/compute/models/hard_drive'
       Fog::Hyperv::Compute::HardDrive.prepend ::FogExtensions::Hyperv::HardDrive
 
-      Nic::Managed.prepend ::ForemanHyperv::NicManagedExtensions
+      Host::Managed.prepend ::ForemanHyperv::HostManagedExtensions
     end
     #
     # initializer 'foreman_hyperv.register_gettext', after: :load_config_initializers do

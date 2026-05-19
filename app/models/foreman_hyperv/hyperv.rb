@@ -231,6 +231,29 @@ module ForemanHyperv
       true
     end
 
+    def update_required?(old_attrs, new_attrs)
+      return true if super
+
+      new_attrs.deep_symbolize_keys[:volumes_attributes]&.each do |_, hdd|
+        if hdd[:_destroy] == '1'
+          Rails.logger.debug "Scheduling compute instance update because a volume was removed"
+          return true
+        elsif !hdd[:id].present?
+          Rails.logger.debug "Scheduling compute instance update because a new volume was added"
+          return true
+        end
+      end
+      new_attrs.deep_symbolize_keys[:interfaces_attributes]&.each do |_, iface|
+        if iface[:_destroy] == '1'
+          Rails.logger.debug "Scheduling compute instance update because an interface was removed"
+          return true
+        elsif !iface[:id].present?
+          Rails.logger.debug "Scheduling compute instance update because a new interface was added"
+          return true
+        end
+      end
+    end
+
     # def console(uuid)
     #   vm = find_vm_by_uuid(uuid)
     #
@@ -322,10 +345,23 @@ module ForemanHyperv
 
     def validate_interfaces(attr)
       interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
+      interfaces.reject! { |iface| iface[:_destroy] == '1' }
       interfaces.each do |iface|
-        next if iface[:_delete] == '1'
-
-        # raise Foreman::Exception, 'Interface lacks ID' if iface[:_delete] == '0' && !iface[:identity].present?
+        case iface[:vlan_operation_mode].to_s
+        when 'Access'
+          raise Foreman::Exception, 'Interface is missing access VLAN' unless iface[:access_vlan_id].to_i > 0
+        when 'Trunk'
+          raise Foreman::Exception, 'Interface is missing native VLAN' unless iface[:native_vlan_id].to_i > 0
+          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless iface[:allowed_vlan_ids].presence?
+        when 'Private'
+          raise Foreman::Exception, 'Interface is missing primary VLAN' unless iface[:primary_vlan_id].to_i > 0
+          case iface[:vlan_private_mode].to_s
+          when 'Promiscuous'
+            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless iface[:secondary_vlan_ids].presence?
+          else
+            raise Foreman::Exception, 'Interface is missing secondary VLAN' unless iface[:secondary_vlan_id].to_i > 0
+          end
+        end
       end
     end
 
@@ -340,8 +376,8 @@ module ForemanHyperv
         first_provisioned = true
 
         nic ||= vm.network_adapters.new
-        iface.except(:identity).select { |_, v| v.present? }.each do |k, v|
-          nic.send(:"#{k}=", v)
+        iface.except(:identity, :ip, :ip6).each do |k, v|
+          nic.send(:"#{k}=", v.presence)
         end
         # nic.is_legacy = Foreman::Cast.to_bool(iface[:is_legacy]) if vm.generation == :BIOS && iface[:is_legacy].present?
         # logger.debug "Creating interface with #{iface.inspect} - #{nic.inspect}\n#{nic.vlan_setting.inspect}"
@@ -365,22 +401,24 @@ module ForemanHyperv
       logger.debug "Updating interfaces with: #{interfaces}"
 
       interfaces.each do |interface|
-        if interface[:identity].present?
-          nic = vm.network_adapters.get interface[:identity]
-          if interface[:_delete] == '1'
+        compute = interface[:compute_attributes]
+        if compute[:identity].present?
+          nic = vm.network_adapters.get compute[:identity]
+          if interface[:_destroy] == '1'
             nic.destroy
           else
-            interface.except(:identity, :_delete).select { |_, v| v.present? }.each do |k, v|
-              nic.send(:"#{k}=", v)
+            compute.each do |k, v|
+              nic.send(:"#{k}=", v.presence)
             end
+            nic.mac ||= interface[:mac].presence
             nic.save if nic.dirty?
           end
-        elsif interface[:_delete] != '1'
+        elsif compute[:_destroy] != '1'
           nic = vm.network_adapters.new
-          interface.except(:identity, :_delete).select { |_, v| v.present? }.each do |k, v|
-            nic.send(:"#{k}=", v)
+          compute.each do |k, v|
+            nic.send(:"#{k}=", v.presence)
           end
-
+          nic.mac ||= interface[:mac].presence
           nic.save
         end
       end
@@ -388,9 +426,8 @@ module ForemanHyperv
 
     def validate_volumes(attr)
       volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
+      volumes.reject! { |vol| vol[:_destroy] == '1' }
       volumes.each do |vol|
-        next if vol[:_delete] == '1'
-
         raise Foreman::Exception, 'Volume lacks name' unless vol[:basename].presence
         raise Foreman::Exception, 'Volume name should not include a file extension' if vol[:basename] =~ /\.vhd[sx]?$/
         raise Foreman::Exception, 'Volume lacks size' unless vol[:size_bytes].to_i > 0
@@ -413,14 +450,14 @@ module ForemanHyperv
       volumes.each do |volume|
         if volume[:id].present?
           hd = vm.hard_drives.get volume[:id]
-          if volume[:_delete] == '1'
+          if volume[:_destroy] == '1'
             hd.destroy(underlying: true)
           else
             vhd = hd.vhd
             vhd.size = volume[:size_bytes].to_i
             vhd.save if vhd.dirty?
           end
-        elsif volume[:_delete] != '1'
+        elsif volume[:_destroy] != '1'
           vhd = vm.vhds.create basename: volume[:basename], size: volume[:size_bytes].to_i
           vm.hard_drives.create path: vhd.path
         end
