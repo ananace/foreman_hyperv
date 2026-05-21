@@ -1,3 +1,4 @@
+<%= javascript_include_tag("foreman_hyperv/compute_resource_base.js") %>
 <%
   cluster_errors = []
   begin
@@ -48,12 +49,9 @@
 </div>
 <% end -%>
 
-<%
-  generations = [ [:BIOS, 'Generation 1 (BIOS)'], [:UEFI, 'Generation 2 (UEFI)'] ]
--%>
-<%= select_f f, :generation, generations, :first, :last, {}, label: 'Generation', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
+<%= select_f f, :generation, hyperv_generations, :first, :last, {}, label: 'Firmware', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
 <% if new_host || f.object.generation == :UEFI -%>
-<%= checkbox_f f, :secure_boot_enabled, { label: _('Use Secure Boot'), disabled: f.object.generation == :BIOS }, 'true', 'false' %>
+<%= checkbox_f f, :secure_boot_enabled, { label: _('Enable Secure Boot'), disabled: f.object.generation == :BIOS }, 'true', 'false' %>
 <% end -%>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
@@ -67,5 +65,3 @@
 <%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
 
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
-
-<%= javascript_include_tag("foreman_hyperv/compute_resource_base.js") %>

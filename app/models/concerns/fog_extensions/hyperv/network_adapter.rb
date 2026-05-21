@@ -58,11 +58,11 @@ module FogExtensions
       def allowed_vlan_ids
         return nil unless vlan_setting.allowed_vlan_id_list&.any?
 
-        vlan_setting.allowed_vlan_id_list.join ', '
+        Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list vlan_setting.allowed_vlan_id_list
       end
       def allowed_vlan_ids=(ids)
         ids ||= ''
-        vlan_setting.allowed_vlan_id_list = ids.split(',').map(&:to_i)
+        vlan_setting.allowed_vlan_id_list = parse_vlan_list(ids)
       end
 
       def primary_vlan_id
@@ -86,11 +86,11 @@ module FogExtensions
       def secondary_vlan_ids
         return nil unless vlan_setting.secondary_vlan_id_list&.any?
 
-        vlan_setting.secondary_vlan_id_list.join ', '
+        Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list vlan_setting.secondary_vlan_id_list
       end
       def secondary_vlan_ids=(ids)
         ids ||= ''
-        vlan_setting.secondary_vlan_id_list = ids.split(',').map(&:to_i)
+        vlan_setting.secondary_vlan_id_list = parse_vlan_list(ids)
       end
 
       def compute_attributes
@@ -111,6 +111,21 @@ module FogExtensions
               secondary_vlan_ids:
             }.compact
           )
+      end
+
+      private
+
+      def parse_vlan_list(list)
+        ret = []
+        list.split(',').map do |num|
+          if num.include? '-'
+            rstart, rend = num.split('-')
+            ret += (rstart.to_i..rend.to_i).to_a
+          else
+            ret << num.to_i
+          end
+        end
+        ret
       end
     end
   end

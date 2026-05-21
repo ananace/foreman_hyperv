@@ -6,6 +6,9 @@ module ForemanHyperv
       end
     end
 
+    def hyperv_generations
+      Fog::Hyperv::Compute::Server::VM_GENERATION_VALUES.map { |gen, num| [gen, "Generation #{num} (#{gen})"] }
+    end
     def hyperv_vlan_modes
       Fog::Hyperv::Compute::NetworkAdapterVlan::VLAN_OPERATION_MODE.map { |mode| [mode, mode] }
     end

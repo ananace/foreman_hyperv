@@ -192,6 +192,7 @@ module ForemanHyperv
 
     def save_vm(uuid, web_attr)
       attr = web_attr.deep_symbolize_keys
+
       validate_interfaces(attr)
       validate_volumes(attr)
 
@@ -348,19 +349,22 @@ module ForemanHyperv
       interfaces.reject! { |iface| iface[:_destroy] == '1' }
       interfaces.each do |iface|
         case iface[:vlan_operation_mode].to_s
+        when 'Untagged'
         when 'Access'
           raise Foreman::Exception, 'Interface is missing access VLAN' unless iface[:access_vlan_id].to_i > 0
         when 'Trunk'
           raise Foreman::Exception, 'Interface is missing native VLAN' unless iface[:native_vlan_id].to_i > 0
-          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless iface[:allowed_vlan_ids].presence?
+          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless iface[:allowed_vlan_ids].present?
         when 'Private'
           raise Foreman::Exception, 'Interface is missing primary VLAN' unless iface[:primary_vlan_id].to_i > 0
           case iface[:vlan_private_mode].to_s
           when 'Promiscuous'
-            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless iface[:secondary_vlan_ids].presence?
+            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless iface[:secondary_vlan_ids].present?
           else
             raise Foreman::Exception, 'Interface is missing secondary VLAN' unless iface[:secondary_vlan_id].to_i > 0
           end
+        else
+          raise Foreman::Exception, 'Interface has unknown VLAN mode'
         end
       end
     end
@@ -411,9 +415,9 @@ module ForemanHyperv
               nic.send(:"#{k}=", v.presence)
             end
             nic.mac ||= interface[:mac].presence
-            nic.save if nic.dirty?
+            nic.save
           end
-        elsif compute[:_destroy] != '1'
+        elsif interface[:_destroy] != '1'
           nic = vm.network_adapters.new
           compute.each do |k, v|
             nic.send(:"#{k}=", v.presence)
@@ -450,14 +454,14 @@ module ForemanHyperv
       volumes.each do |volume|
         if volume[:id].present?
           hd = vm.hard_drives.get volume[:id]
-          if volume[:_destroy] == '1'
+          if volume[:_delete] == '1'
             hd.destroy(underlying: true)
           else
             vhd = hd.vhd
             vhd.size = volume[:size_bytes].to_i
             vhd.save if vhd.dirty?
           end
-        elsif volume[:_destroy] != '1'
+        elsif volume[:_delete] != '1'
           vhd = vm.vhds.create basename: volume[:basename], size: volume[:size_bytes].to_i
           vm.hard_drives.create path: vhd.path
         end

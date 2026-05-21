@@ -23,6 +23,9 @@ module ForemanHyperv
       true
     end
 
+    private
+
+    # Reconcile the mapping between Hyper-V and Foreman interfaces
     def hyperv_sync_interfaces
       unmapped_ifaces = interfaces.select { |iface| iface.physical? && !iface.compute_attributes['identity'].present? }
       return true if unmapped_ifaces.empty?
@@ -49,8 +52,6 @@ module ForemanHyperv
         fog_nics.delete selected_nic
       end
     end
-
-    private
 
     # Inject interface attributes into the compute values, to allow modifying Hyper-V configuration on hosts
     def hyperv_add_attributes(attributes)
