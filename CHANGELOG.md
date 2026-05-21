@@ -1,6 +1,9 @@
-## v0.0.5 **Unreleased**
+## v0.1.0 2026-05-21
 
 - Lowercase the MAC addresses on NIC- as well as host level
+- Fix license inconsistency
+- Retarget onto newly rewritten fog-hyperv 0.1
+- Support interface modification
 
 ## v0.0.4 2018-04-06
 
