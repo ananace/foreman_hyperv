@@ -370,7 +370,7 @@ module ForemanHyperv
       interfaces.reject! { |iface| iface[:_destroy] == '1' }
       # logger.debug "Validate NIC #{interfaces.inspect}"
       interfaces.each do |iface|
-        compute = iface[:compute_attributes]
+        compute = iface[:compute_attributes] || iface
         case compute[:vlan_operation_mode].to_s
         when 'Untagged'
         when 'Access'
