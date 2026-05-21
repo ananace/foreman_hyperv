@@ -151,7 +151,7 @@ module ForemanHyperv
       attr.delete :computer_name if attr[:computer_name].blank?
       attr.delete :start
 
-      validate_vm(attr)
+      validate_vm(attr, new: true)
       validate_interfaces(attr)
       validate_volumes(attr)
 
@@ -193,6 +193,7 @@ module ForemanHyperv
     def save_vm(uuid, web_attr)
       attr = web_attr.deep_symbolize_keys
 
+      validate_vm(attr)
       validate_interfaces(attr)
       validate_volumes(attr)
 
@@ -233,26 +234,46 @@ module ForemanHyperv
     end
 
     def update_required?(old_attrs, new_attrs)
-      return true if super
-
       new_attrs.deep_symbolize_keys[:volumes_attributes]&.each do |_, hdd|
-        if hdd[:_destroy] == '1'
+        if hdd[:id].present? && hdd[:_delete] == '1'
           Rails.logger.debug "Scheduling compute instance update because a volume was removed"
           return true
-        elsif !hdd[:id].present?
+        elsif !hdd[:id].present? && hdd[:_delete] != '1'
           Rails.logger.debug "Scheduling compute instance update because a new volume was added"
           return true
         end
       end
       new_attrs.deep_symbolize_keys[:interfaces_attributes]&.each do |_, iface|
-        if iface[:_destroy] == '1'
+        if iface[:id].present? && iface[:_destroy] == '1'
           Rails.logger.debug "Scheduling compute instance update because an interface was removed"
           return true
-        elsif !iface[:id].present?
+        elsif !iface[:id].present? && iface[:_destroy] != '1'
           Rails.logger.debug "Scheduling compute instance update because a new interface was added"
           return true
         end
       end
+
+      deep_update_required = proc do |old, new|
+        old.merge(new) do |k, old_v, new_v|
+          if k == :allowed_vlan_ids || k == :secondary_vlan_ids
+            tmp = Fog::Hyperv::Compute::NetworkAdapter.new
+
+            old_v = Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list(tmp.send(:parse_vlan_list, old_v.to_s))
+            new_v = Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list(tmp.send(:parse_vlan_list, new_v.to_s))
+          end
+
+          if old_v.is_a?(Hash) && new_v.is_a?(Hash)
+            deep_update_required.call(old_v, new_v)
+          elsif old_v.to_s != new_v.to_s
+            Rails.logger.debug "Scheduling compute instance update because #{k} changed it's value from '#{old_v}' (#{old_v.class}) to '#{new_v}' (#{new_v.class})"
+            return true
+          end
+          new_v
+        end
+      end
+      deep_update_required.call(old_attrs.deep_symbolize_keys, new_attrs.deep_symbolize_keys)
+
+      false
     end
 
     # def console(uuid)
@@ -332,9 +353,9 @@ module ForemanHyperv
       []
     end
 
-    def validate_vm(attr)
-      raise Foreman::Exception, 'VM lacks name' unless attr[:name].presence
-      raise Foreman::Exception, 'VM lacks generation' unless attr[:generation].presence
+    def validate_vm(attr, new: false)
+      # logger.debug "Validate VM #{attr.inspect}"
+      raise Foreman::Exception, 'VM lacks generation' if new && !attr[:generation].present?
       raise Foreman::Exception, 'VM lacks memory' unless attr[:memory_startup].to_i > 0
       raise Foreman::Exception, 'VM lacks CPUs' unless attr[:processor_count].to_i > 0
 
@@ -347,21 +368,23 @@ module ForemanHyperv
     def validate_interfaces(attr)
       interfaces = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       interfaces.reject! { |iface| iface[:_destroy] == '1' }
+      # logger.debug "Validate NIC #{interfaces.inspect}"
       interfaces.each do |iface|
-        case iface[:vlan_operation_mode].to_s
+        compute = iface[:compute_attributes]
+        case compute[:vlan_operation_mode].to_s
         when 'Untagged'
         when 'Access'
-          raise Foreman::Exception, 'Interface is missing access VLAN' unless iface[:access_vlan_id].to_i > 0
+          raise Foreman::Exception, 'Interface is missing access VLAN' unless compute[:access_vlan_id].to_i > 0
         when 'Trunk'
-          raise Foreman::Exception, 'Interface is missing native VLAN' unless iface[:native_vlan_id].to_i > 0
-          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless iface[:allowed_vlan_ids].present?
+          raise Foreman::Exception, 'Interface is missing native VLAN' unless compute[:native_vlan_id].to_i > 0
+          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless compute[:allowed_vlan_ids].present?
         when 'Private'
-          raise Foreman::Exception, 'Interface is missing primary VLAN' unless iface[:primary_vlan_id].to_i > 0
-          case iface[:vlan_private_mode].to_s
+          raise Foreman::Exception, 'Interface is missing primary VLAN' unless compute[:primary_vlan_id].to_i > 0
+          case compute[:vlan_private_mode].to_s
           when 'Promiscuous'
-            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless iface[:secondary_vlan_ids].present?
+            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless compute[:secondary_vlan_ids].present?
           else
-            raise Foreman::Exception, 'Interface is missing secondary VLAN' unless iface[:secondary_vlan_id].to_i > 0
+            raise Foreman::Exception, 'Interface is missing secondary VLAN' unless compute[:secondary_vlan_id].to_i > 0
           end
         else
           raise Foreman::Exception, 'Interface has unknown VLAN mode'
@@ -430,9 +453,10 @@ module ForemanHyperv
 
     def validate_volumes(attr)
       volumes = nested_attributes_for :volumes, attr[:volumes_attributes]
-      volumes.reject! { |vol| vol[:_destroy] == '1' }
+      volumes.reject! { |vol| vol[:_delete] == '1' }
+      # logger.debug "Validate Volume #{volumes.inspect}"
       volumes.each do |vol|
-        raise Foreman::Exception, 'Volume lacks name' unless vol[:basename].presence
+        raise Foreman::Exception, 'Volume lacks name' unless vol[:basename].present?
         raise Foreman::Exception, 'Volume name should not include a file extension' if vol[:basename] =~ /\.vhd[sx]?$/
         raise Foreman::Exception, 'Volume lacks size' unless vol[:size_bytes].to_i > 0
       end

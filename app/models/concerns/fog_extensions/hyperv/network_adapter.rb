@@ -125,7 +125,7 @@ module FogExtensions
             ret << num.to_i
           end
         end
-        ret
+        ret.sort.uniq
       end
     end
   end
