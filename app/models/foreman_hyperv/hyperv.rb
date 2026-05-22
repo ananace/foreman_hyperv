@@ -108,6 +108,10 @@ module ForemanHyperv
       )
     end
 
+    def associated_host(vm)
+      associate_by("mac", vm.network_adapters.map(&:mac))
+    end
+
     delegate :servers, to: :client
 
     def switches(host)

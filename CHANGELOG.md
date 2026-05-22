@@ -1,6 +1,7 @@
 ## Unreleased
 
 - Replace firmware selection with common methods
+- Fix lost VM association functionality
 
 ## v0.1.1 2026-05-22
 
