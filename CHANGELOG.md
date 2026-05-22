@@ -1,3 +1,7 @@
+## Unreleased
+
+- Replace firmware selection with common methods
+
 ## v0.1.1 2026-05-22
 
 - Add support for Ruby 3.0
