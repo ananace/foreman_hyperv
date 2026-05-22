@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module FogExtensions
   module Hyperv
     module Server
@@ -9,7 +11,7 @@ module FogExtensions
       end
 
       def folder_name
-        name.gsub(/[^0-9A-Za-z.\-]/, '_')
+        name.gsub(/[^0-9A-Za-z.-]/, '_')
       end
 
       def mac
@@ -40,7 +42,6 @@ module FogExtensions
       def cluster_name=(name)
         @cluster = service.clusters.get(name)
       end
-      #
 
       def vlan
         nic = network_adapters.first
@@ -51,7 +52,7 @@ module FogExtensions
       def vlan=(vlan)
         logger.warn "using vlan=#{vlan.inspect} on Hyper-V VM, this can lead to unexpected results"
         nic = network_adapters.first
-        if vlan.present? && vlan.to_i > 0
+        if vlan.present? && vlan.to_i.positive?
           nic.vlan_operation_mode = :Access if nic.vlan_operation_mode == :Untagged
           case nic.vlan_operation_mode
           when :Access
@@ -103,29 +104,35 @@ module FogExtensions
         match ||= fog_nics.detect { |fn| fn.mac == nic.mac }
         # match ||= fog_nics.detect { |fn| fn.name == nic_attrs['name'].presence }
 
-        if !match
+        unless match
           # Match on networking, limit potentials down to identical configuration and then pick the first
           potential = fog_nics.select do |fn|
             fn.switch_id == nic_attrs['switch_id'].presence || fn.switch_name == nic_attrs['switch_name'].presence
           end
           potential.select! { |fn| fn.vlan_operation_mode.to_s == nic_attrs['vlan_operation_mode'] }
-          if nic_attrs['vlan_operation_mode'] == 'Access'
+          case nic_attrs['vlan_operation_mode']
+          when 'Access'
             potential.select! { |fn| fn.access_vlan_id.to_s == nic_attrs['access_vlan_id'] }
-          elsif nic_attrs['vlan_operation_mode'] == 'Trunk'
+          when 'Trunk'
             potential.select! { |fn| fn.native_vlan_id.to_s == nic_attrs['native_vlan_id'] }
-            potential.select! { |fn| fn.allowed_vlan_ids.split(',').map(&:strip) == nic_attrs['allowed_vlan_ids'].split(',').map(&:strip) } \
-              if nic_attrs['allowed_vlan_ids'].present?
-          elsif nic_attrs['vlan_operation_mode'] == 'Private'
+            if nic_attrs['allowed_vlan_ids'].present?
+              potential.select! do |fn|
+                fn.allowed_vlan_ids.split(',').map(&:strip) == nic_attrs['allowed_vlan_ids'].split(',').map(&:strip)
+              end
+            end
+          when 'Private'
             potential.select! { |fn| fn.vlan_private_mode.to_s == nic_attrs['vlan_private_mode'] }
             potential.select! { |fn| fn.primary_vlan_id.to_s == nic_attrs['primary_vlan_id'].to_s } \
               if nic_attrs['primary_vlan_id'].present?
 
             if nic_attrs['vlan_private_mode'] == 'Promiscuous'
-              potential.select! { |fn| fn.secondary_vlan_ids.split(',').map(&:strip) == nic_attrs['secondary_vlan_ids'].split(',').map(&:strip) } \
-                if nic_attrs['secondary_vlan_ids'].present?
-            else
-              potential.select! { |fn| fn.secondary_vlan_id.to_s == nic_attrs['secondary_vlan_id'].to_s } \
-                if nic_attrs['secondary_vlan_id'].present?
+              if nic_attrs['secondary_vlan_ids'].present?
+                potential.select! do |fn|
+                  fn.secondary_vlan_ids.split(',').map(&:strip) == nic_attrs['secondary_vlan_ids'].split(',').map(&:strip)
+                end
+              end
+            elsif nic_attrs['secondary_vlan_id'].present?
+              potential.select! { |fn| fn.secondary_vlan_id.to_s == nic_attrs['secondary_vlan_id'].to_s }
             end
           end
 

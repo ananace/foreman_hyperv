@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ForemanHyperv
   class Hyperv < ::ComputeResource
     include ComputeResourceCaching
@@ -37,7 +39,7 @@ module ForemanHyperv
       validate_connectivity(options)
     end
 
-    def validate_connectivity(options = {})
+    def validate_connectivity(_options = {})
       return unless connection_properties_valid?
       return false if errors.any?
 
@@ -64,10 +66,6 @@ module ForemanHyperv
 
     def provided_attributes
       super.merge(mac: :mac)
-    end
-
-    def editable_network_interfaces?
-      true
     end
 
     # TODO
@@ -127,7 +125,7 @@ module ForemanHyperv
       iface_nested_attrs = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       vm.network_adapters = iface_nested_attrs.map do |attr|
         attr.delete :id
-        Fog::Hyperv::Compute::NetworkAdapter.new(service: vm.service, vm:).tap do |nic|
+        Fog::Hyperv::Compute::NetworkAdapter.new(service: vm.service, vm: vm).tap do |nic|
           attr.select { |_, v| v.present? }.each do |k, v|
             nic.send(:"#{k}=", v)
           end
@@ -136,7 +134,7 @@ module ForemanHyperv
       volume_nested_attrs = nested_attributes_for :volumes, attr[:volumes_attributes]
       vm.hard_drives = volume_nested_attrs.map do |attr|
         attr.delete :id
-        Fog::Hyperv::Compute::HardDrive.new(service: vm.service, vm:).tap do |hdd|
+        Fog::Hyperv::Compute::HardDrive.new(service: vm.service, vm: vm).tap do |hdd|
           attr.select { |_, v| v.present? }.each do |k, v|
             hdd.send(:"#{k}=", v)
           end
@@ -234,28 +232,28 @@ module ForemanHyperv
     end
 
     def update_required?(old_attrs, new_attrs)
-      new_attrs.deep_symbolize_keys[:volumes_attributes]&.each do |_, hdd|
+      new_attrs.deep_symbolize_keys[:volumes_attributes]&.each_value do |hdd|
         if hdd[:id].present? && hdd[:_delete] == '1'
-          Rails.logger.debug "Scheduling compute instance update because a volume was removed"
+          Rails.logger.debug 'Scheduling compute instance update because a volume was removed'
           return true
-        elsif !hdd[:id].present? && hdd[:_delete] != '1'
-          Rails.logger.debug "Scheduling compute instance update because a new volume was added"
+        elsif hdd[:id].blank? && hdd[:_delete] != '1'
+          Rails.logger.debug 'Scheduling compute instance update because a new volume was added'
           return true
         end
       end
-      new_attrs.deep_symbolize_keys[:interfaces_attributes]&.each do |_, iface|
+      new_attrs.deep_symbolize_keys[:interfaces_attributes]&.each_value do |iface|
         if iface[:id].present? && iface[:_destroy] == '1'
-          Rails.logger.debug "Scheduling compute instance update because an interface was removed"
+          Rails.logger.debug 'Scheduling compute instance update because an interface was removed'
           return true
-        elsif !iface[:id].present? && iface[:_destroy] != '1'
-          Rails.logger.debug "Scheduling compute instance update because a new interface was added"
+        elsif iface[:id].blank? && iface[:_destroy] != '1'
+          Rails.logger.debug 'Scheduling compute instance update because a new interface was added'
           return true
         end
       end
 
       deep_update_required = proc do |old, new|
         old.merge(new) do |k, old_v, new_v|
-          if k == :allowed_vlan_ids || k == :secondary_vlan_ids
+          if %i[allowed_vlan_ids secondary_vlan_ids].include?(k)
             tmp = Fog::Hyperv::Compute::NetworkAdapter.new
 
             old_v = Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list(tmp.send(:parse_vlan_list, old_v.to_s))
@@ -265,7 +263,9 @@ module ForemanHyperv
           if old_v.is_a?(Hash) && new_v.is_a?(Hash)
             deep_update_required.call(old_v, new_v)
           elsif old_v.to_s != new_v.to_s
-            Rails.logger.debug "Scheduling compute instance update because #{k} changed it's value from '#{old_v}' (#{old_v.class}) to '#{new_v}' (#{new_v.class})"
+            Rails.logger.debug do
+              "Scheduling compute instance update because #{k} changed it's value from '#{old_v}' (#{old_v.class}) to '#{new_v}' (#{new_v.class})"
+            end
             return true
           end
           new_v
@@ -293,8 +293,8 @@ module ForemanHyperv
       basename = attr.delete(:basename) { 'Disk' }
       size = attr.delete(:size)
 
-      vhd = client.vhds.new({ basename:, size: }.compact)
-      Fog::Hyperv::Compute::HardDrive.new vhd:, **attr
+      vhd = client.vhds.new({ basename: basename, size: size }.compact)
+      Fog::Hyperv::Compute::HardDrive.new vhd: vhd, **attr
     end
 
     def new_cdrom(attr = {})
@@ -303,10 +303,10 @@ module ForemanHyperv
 
     def vm_instance_defaults
       super.merge(
-        generation:      2,
-        memory_startup:  1024.megabytes,
+        generation: 2,
+        memory_startup: 1024.megabytes,
         processor_count: 1,
-        interfaces:      [new_interface]
+        interfaces: [new_interface]
       )
     end
 
@@ -344,25 +344,22 @@ module ForemanHyperv
     private
 
     def _clusters
-      if client.respond_to? :supports_clusters?
-        return [] unless client.supports_clusters?
-      end
+      return [] if client.respond_to?(:supports_clusters?) && !client.supports_clusters?
 
       client.clusters.all
-    rescue
+    rescue StandardError
       []
     end
 
     def validate_vm(attr, new: false)
       # logger.debug "Validate VM #{attr.inspect}"
-      raise Foreman::Exception, 'VM lacks generation' if new && !attr[:generation].present?
-      raise Foreman::Exception, 'VM lacks memory' unless attr[:memory_startup].to_i > 0
-      raise Foreman::Exception, 'VM lacks CPUs' unless attr[:processor_count].to_i > 0
+      raise Foreman::Exception, 'VM lacks generation' if new && attr[:generation].blank?
+      raise Foreman::Exception, 'VM lacks memory' unless attr[:memory_startup].to_i.positive?
+      raise Foreman::Exception, 'VM lacks CPUs' unless attr[:processor_count].to_i.positive?
 
-      if Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
-        raise Foreman::Exception, 'VM lacks memory minimum' unless attr[:memory_minimum].to_i > 0
-        raise Foreman::Exception, 'VM lacks memory maximum' unless attr[:memory_maximum].to_i > 0
-      end
+      return unless Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
+      raise Foreman::Exception, 'VM lacks memory minimum' unless attr[:memory_minimum].to_i.positive?
+      raise Foreman::Exception, 'VM lacks memory maximum' unless attr[:memory_maximum].to_i.positive?
     end
 
     def validate_interfaces(attr)
@@ -373,18 +370,26 @@ module ForemanHyperv
         compute = iface[:compute_attributes] || iface
         case compute[:vlan_operation_mode].to_s
         when 'Untagged'
+          # No VLAN settings to verify
         when 'Access'
-          raise Foreman::Exception, 'Interface is missing access VLAN' unless compute[:access_vlan_id].to_i > 0
+          raise Foreman::Exception, 'Interface is missing access VLAN' unless compute[:access_vlan_id].to_i.positive?
         when 'Trunk'
-          raise Foreman::Exception, 'Interface is missing native VLAN' unless compute[:native_vlan_id].to_i > 0
-          raise Foreman::Exception, 'Interface is missing allowed VLANs' unless compute[:allowed_vlan_ids].present?
+          raise Foreman::Exception, 'Interface is missing native VLAN' unless compute[:native_vlan_id].to_i.positive?
+          raise Foreman::Exception, 'Interface is missing allowed VLANs' if compute[:allowed_vlan_ids].blank?
         when 'Private'
-          raise Foreman::Exception, 'Interface is missing primary VLAN' unless compute[:primary_vlan_id].to_i > 0
+          raise Foreman::Exception, 'Interface is missing primary VLAN' unless compute[:primary_vlan_id].to_i.positive?
+
           case compute[:vlan_private_mode].to_s
           when 'Promiscuous'
-            raise Foreman::Exception, 'Interface is missing secondary VLANs' unless compute[:secondary_vlan_ids].present?
+            if compute[:secondary_vlan_ids].blank?
+              raise Foreman::Exception,
+                    'Interface is missing secondary VLANs'
+            end
           else
-            raise Foreman::Exception, 'Interface is missing secondary VLAN' unless compute[:secondary_vlan_id].to_i > 0
+            unless compute[:secondary_vlan_id].to_i.positive?
+              raise Foreman::Exception,
+                    'Interface is missing secondary VLAN'
+            end
           end
         else
           raise Foreman::Exception, 'Interface has unknown VLAN mode'
@@ -411,7 +416,9 @@ module ForemanHyperv
         nic.save
       end
 
-      return unless vm.network_adapters.all(_return_fields: %i[dynamic_mac_address_enabled]).any?(&:dynamic_mac_address_enabled)
+      unless vm.network_adapters.all(_return_fields: %i[dynamic_mac_address_enabled]).any?(&:dynamic_mac_address_enabled)
+        return
+      end
 
       # Populate all non-populated MAC addresses
       vm.start
@@ -456,11 +463,13 @@ module ForemanHyperv
       volumes.reject! { |vol| vol[:_delete] == '1' }
       # logger.debug "Validate Volume #{volumes.inspect}"
       volumes.each do |vol|
-        raise Foreman::Exception, 'Volume lacks name' unless vol[:basename].present?
+        raise Foreman::Exception, 'Volume lacks name' if vol[:basename].blank?
         raise Foreman::Exception, 'Volume name should not include a file extension' if vol[:basename] =~ /\.vhd[sx]?$/
-        raise Foreman::Exception, 'Volume lacks size' unless vol[:size_bytes].to_i > 0
+        raise Foreman::Exception, 'Volume lacks size' unless vol[:size_bytes].to_i.positive?
       end
-      raise Foreman::Exception, 'Volume names need to be unique' if volumes.group_by { |vol| vol[:basename].downcase }.any? { |k, v| v.count > 1 }
+      return unless volumes.group_by { |vol| vol[:basename].downcase }.any? { |_k, v| v.many? }
+
+      raise Foreman::Exception, 'Volume names need to be unique'
     end
 
     def create_volumes(vm, attr)
@@ -468,7 +477,7 @@ module ForemanHyperv
       logger.debug "Creating volumes with: #{volumes}"
       volumes.each do |vol|
         vhd = vm.vhds.create basename: vol[:basename], size: vol[:size_bytes].to_i
-        vm.hard_drives.create vhd:
+        vm.hard_drives.create vhd: vhd
       end
     end
 

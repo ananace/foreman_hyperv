@@ -7,16 +7,17 @@ module FogExtensions
 
       def mac
         return unless mac_address
-        return if mac_address.to_i(16) == 0
+        return if mac_address.to_i(16).zero?
 
         # Downcase and split every 2 chars, join with :
-        mac_address.downcase.scan(%r{.{2}}).join(':')
+        mac_address.downcase.scan(/.{2}/).join(':')
       end
 
       def mac=(m)
         mac_address = m&.upcase&.delete(':')
         mac_address = Fog::Hyperv::Compute::NetworkAdapter::NIC_FALLBACK_MAC if mac_address.nil? || mac_address.blank?
-        dynamic_mac_address_enabled = (mac_address.to_i(16) == 0)
+        mac_address.to_i(16)
+        0
       end
 
       # VLAN settings
@@ -24,6 +25,7 @@ module FogExtensions
       def vlan_operation_mode
         vlan_setting.operation_mode
       end
+
       def vlan_operation_mode=(mode)
         vlan_setting.operation_mode = mode
       end
@@ -33,6 +35,7 @@ module FogExtensions
 
         vlan_setting.private_vlan_mode
       end
+
       def vlan_private_mode=(mode)
         vlan_setting.private_vlan_mode = mode
       end
@@ -42,24 +45,23 @@ module FogExtensions
 
         vlan_setting.access_vlan_id
       end
-      def access_vlan_id=(id)
-        vlan_setting.access_vlan_id = id
-      end
+
+      delegate :access_vlan_id=, to: :vlan_setting
 
       def native_vlan_id
         return nil if vlan_setting.native_vlan_id.zero?
 
         vlan_setting.native_vlan_id
       end
-      def native_vlan_id=(id)
-        vlan_setting.native_vlan_id = id
-      end
+
+      delegate :native_vlan_id=, to: :vlan_setting
 
       def allowed_vlan_ids
         return nil unless vlan_setting.allowed_vlan_id_list&.any?
 
         Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list vlan_setting.allowed_vlan_id_list
       end
+
       def allowed_vlan_ids=(ids)
         ids ||= ''
         vlan_setting.allowed_vlan_id_list = parse_vlan_list(ids)
@@ -70,24 +72,23 @@ module FogExtensions
 
         vlan_setting.primary_vlan_id
       end
-      def primary_vlan_id=(id)
-        vlan_setting.primary_vlan_id = id
-      end
+
+      delegate :primary_vlan_id=, to: :vlan_setting
 
       def secondary_vlan_id
         return nil if vlan_setting.secondary_vlan_id.zero?
 
         vlan_setting.secondary_vlan_id
       end
-      def secondary_vlan_id=(id)
-        vlan_setting.secondary_vlan_id = id
-      end
+
+      delegate :secondary_vlan_id=, to: :vlan_setting
 
       def secondary_vlan_ids
         return nil unless vlan_setting.secondary_vlan_id_list&.any?
 
         Fog::Hyperv::Compute::NetworkAdapterVlan.render_vlan_list vlan_setting.secondary_vlan_id_list
       end
+
       def secondary_vlan_ids=(ids)
         ids ||= ''
         vlan_setting.secondary_vlan_id_list = parse_vlan_list(ids)
@@ -100,17 +101,20 @@ module FogExtensions
             :switch_id
           )
           .merge(
-            {
-              vlan_operation_mode:,
-              vlan_private_mode:,
-              access_vlan_id:,
-              native_vlan_id:,
-              allowed_vlan_ids:,
-              primary_vlan_id:,
-              secondary_vlan_id:,
-              secondary_vlan_ids:
-            }.compact
+            vlan_setting.attributes.slice(
+              :vlan_operation_mode,
+              :vlan_private_mode,
+              :access_vlan_id,
+              :native_vlan_id,
+              :primary_vlan_id,
+              :secondary_vlan_id
+            )
           )
+          .merge(
+            secondary_vlan_ids: secondary_vlan_ids,
+            allowed_vlan_ids: allowed_vlan_ids
+          )
+          .compact
       end
 
       private

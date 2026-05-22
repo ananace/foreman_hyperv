@@ -1,5 +1,12 @@
+---
 inherit_from:
   - .rubocop_todo.yml
+plugins:
+  - rubocop-rails
+
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
 
 Rails:
   Enabled: true # always run the rails cops
@@ -20,3 +27,8 @@ Rails/ActionFilter:
 
 Metrics/MethodLength:
   Max: 20
+
+Metrics:
+  Enabled: false
+Naming:
+  Enabled: false

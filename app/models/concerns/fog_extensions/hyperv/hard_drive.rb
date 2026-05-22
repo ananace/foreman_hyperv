@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module FogExtensions
   module Hyperv
     module HardDrive
@@ -27,8 +29,8 @@ module FogExtensions
           .slice(:id)
           .merge(
             {
-              basename:,
-              size_bytes:
+              basename: basename,
+              size_bytes: size_bytes
             }.compact
           )
       end

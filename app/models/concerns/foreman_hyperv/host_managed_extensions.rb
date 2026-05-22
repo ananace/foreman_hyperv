@@ -16,9 +16,9 @@ module ForemanHyperv
 
       begin
         hyperv_sync_interfaces
-      rescue => e
+      rescue StandardError => e
         failure _("Failed to update a compute %{compute_resource} instance %{name}: %{e}") %
-                { compute_resource:, name:, e: }, e
+                { compute_resource: compute_resource, name: name, e: e }, e
       end
       true
     end
@@ -41,8 +41,7 @@ module ForemanHyperv
         selected_nic = vm.select_nic(fog_nics, nic)
         if selected_nic.nil?
           logger.warn "Orchestration::Compute: Could not match network interface #{nic.inspect}"
-          raise ArgumentError, \
-            _("Could not find virtual machine network interface matching %s") %
+          raise ArgumentError, _("Could not find virtual machine network interface matching %s") %
             [nic.identifier, nic.ip, nic.name, nic.type].find(&:present?)
         end
 
