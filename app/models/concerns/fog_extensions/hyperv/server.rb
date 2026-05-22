@@ -43,6 +43,19 @@ module FogExtensions
         @cluster = service.clusters.get(name)
       end
 
+      def boot_device
+        :NetworkAdapter
+      end
+
+      def foreman_firmware
+        generation_num == 1 ? 'bios' : 'efi'
+      end
+      def foreman_firmware=(firmware)
+        raise "Unable to edit firmware after creation" if persisted?
+
+        generation_num = firmware.to_s.start_with?('uefi') ? 2 : 1
+      end
+
       def vlan
         nic = network_adapters.first
 

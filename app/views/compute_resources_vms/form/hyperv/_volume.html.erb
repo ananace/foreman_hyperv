@@ -4,5 +4,5 @@
 <%= f.hidden_field :id %>
 <%= f.hidden_field :basename %>
 <% end -%>
-<%= text_f f, :basename, label: _('Name'), help_inline: _('This is the VHD filename on disk, without extension'), required: true, disabled: f.object.persisted? %>
+<%= text_f f, :basename, label: _('Name'), label_help: _('This is the VHD filename on disk, without extension'), required: true, disabled: f.object.persisted? %>
 <%= byte_size_f f, :size_bytes, label: _('Size') %>

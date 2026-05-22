@@ -120,6 +120,8 @@ module ForemanHyperv
     end
 
     def new_vm(attr = {})
+      firmware_type = attr.delete(:firmware_type).to_s
+      attr.merge!(process_firmware_attributes(attr[:foreman_firmware], firmware_type)) #, attr[:provision_method]))
       attr.delete :id
       vm = super
       iface_nested_attrs = nested_attributes_for :interfaces, attr[:interfaces_attributes]
@@ -149,6 +151,10 @@ module ForemanHyperv
       attr.delete :computer_name if attr[:computer_name].blank?
       attr.delete :start
 
+      firmware_type = attr.delete(:firmware_type).to_s
+      attr.merge!(process_firmware_attributes(attr[:foreman_firmware], firmware_type)) #, attr[:provision_method]))
+      attr[:tpm_enabled] = attr.delete(:tpm_enabled) == '1' if attr['tpm_enabled'].present?
+
       validate_vm(attr, new: true)
       validate_interfaces(attr)
       validate_volumes(attr)
@@ -164,11 +170,12 @@ module ForemanHyperv
         processor_count: attr[:processor_count].to_i,
         notes: attr[:notes]
       )
-      # TODO: Allow configuring boot device?
-      vm.create boot_device: :NetworkAdapter
+      vm.create(
+        boot_device: attr[:boot_device].present? ? attr[:boot_device].to_sym : :NetworkAdapter
+      )
 
       if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
-        f = vm.firmware
+        f = vm.bios
         f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
         f.save if f.dirty?
       end
@@ -207,11 +214,11 @@ module ForemanHyperv
         vm.memory_minimum = attr[:memory_minimum].to_i
         vm.memory_maximum = attr[:memory_maximum].to_i
       end
-      if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
-        f = vm.firmware
-        f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
-        f.save if f.dirty?
-      end
+      # if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
+      #   f = vm.bios
+      #   f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
+      #   f.save if f.dirty?
+      # end
 
       update_interfaces(vm, attr)
       update_volumes(vm, attr)
@@ -360,6 +367,14 @@ module ForemanHyperv
       return unless Foreman::Cast.to_bool(attr[:dynamic_memory_enabled])
       raise Foreman::Exception, 'VM lacks memory minimum' unless attr[:memory_minimum].to_i.positive?
       raise Foreman::Exception, 'VM lacks memory maximum' unless attr[:memory_maximum].to_i.positive?
+    end
+
+    def generate_secure_boot_settings(firmware)
+      return {} unless firmware == 'uefi_secure_boot'
+
+      {
+        secure_boot_enabled: true
+      }
     end
 
     def validate_interfaces(attr)

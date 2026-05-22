@@ -49,10 +49,19 @@
 </div>
 <% end -%>
 
-<%= select_f f, :generation, hyperv_generations, :first, :last, {}, label: 'Firmware', disabled: !new_host, onchange: 'hypervGenerationChange(this);' %>
-<% if new_host || f.object.generation == :UEFI -%>
-<%= checkbox_f f, :secure_boot_enabled, { label: _('Enable Secure Boot'), disabled: f.object.generation == :BIOS }, 'true', 'false' %>
-<% end -%>
+<%
+  firmware_type = compute_resource.firmware_type(f.object.foreman_firmware, f.object.secure_boot_enabled)
+%>
+<%= field(f, :foreman_firmware, :label => _('Firmware'), :label_help => _("Choose 'Automatic' to set the firmware based on the PXE loader of the host. If no PXE loader is selected, firmware defaults to BIOS."), :label_size => "col-md-2") do
+  compute_resource.firmware_types.collect do |type, name|
+    radio_button_f f, :foreman_firmware, { :checked => (firmware_type == type), :disabled => !new_vm, :value => type, :text => _(name) }
+  end.join(' ').html_safe
+end %>
+<%= checkbox_f f, :tpm_enabled, { help_inline: _('Add Virtual TPM module to the VM.'),
+                                  label: _('Virtual TPM'),
+                                  label_help: _('Only compatible with UEFI firmware.'),
+                                  label_size: 'col-md-2' } %>
+<%= select_f f, :boot_device, hyperv_boot_devices, :first, :last, {}, label: _('Boot device'), label_help: _('Has effect only for network based provisioning'), class: 'col-md-2' if new_vm %>
 
 <%= counter_f f, :processor_count, label: _('CPUs'), label_size: 'col-md-2' %>
 <%= byte_size_f f, :memory_startup, label: _('Memory (Startup)'), label_size: 'col-md-2' %>
