@@ -41,7 +41,7 @@ module FogExtensions
       end
 
       def access_vlan_id
-        return nil if vlan_setting.access_vlan_id.zero?
+        return nil if (vlan_setting.access_vlan_id || 0).zero?
 
         vlan_setting.access_vlan_id
       end
@@ -49,7 +49,7 @@ module FogExtensions
       delegate :access_vlan_id=, to: :vlan_setting
 
       def native_vlan_id
-        return nil if vlan_setting.native_vlan_id.zero?
+        return nil if (vlan_setting.native_vlan_id || 0).zero?
 
         vlan_setting.native_vlan_id
       end
@@ -68,7 +68,7 @@ module FogExtensions
       end
 
       def primary_vlan_id
-        return nil if vlan_setting.primary_vlan_id.zero?
+        return nil if (vlan_setting.primary_vlan_id || 0).zero?
 
         vlan_setting.primary_vlan_id
       end
@@ -76,7 +76,7 @@ module FogExtensions
       delegate :primary_vlan_id=, to: :vlan_setting
 
       def secondary_vlan_id
-        return nil if vlan_setting.secondary_vlan_id.zero?
+        return nil if (vlan_setting.secondary_vlan_id || 0).zero?
 
         vlan_setting.secondary_vlan_id
       end
