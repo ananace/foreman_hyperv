@@ -1,4 +1,4 @@
-## Unreleased
+## v0.2.0 2026-06-11
 
 - Replace firmware selection with common methods
 - Fix lost VM association functionality
@@ -6,6 +6,7 @@
 - Fix compute profile creation
 - Fix host cloning
 - Clean up VM config files on removal
+- Increased fog-hyperv version requirement
 
 ## v0.1.1 2026-05-22
 
