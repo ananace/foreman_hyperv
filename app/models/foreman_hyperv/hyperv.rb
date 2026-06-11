@@ -175,7 +175,9 @@ module ForemanHyperv
         notes: attr[:notes]
       )
       vm.create(
-        boot_device: attr[:boot_device].present? ? attr[:boot_device].to_sym : :NetworkAdapter
+        # TODO: should be :VHD if image build - when image build support exists
+        boot_device: attr[:boot_device].present? ? attr[:boot_device].to_sym : :NetworkAdapter,
+        path: hypervisor.virtual_machine_path
       )
 
       if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
@@ -193,7 +195,7 @@ module ForemanHyperv
       if vm
         vm.stop
         vm.hard_drives.each { |hdd| hdd.destroy(underlying: true) }
-        vm.destroy
+        vm.destroy(vm.path.end_with?(vm.name))
       end
 
       raise e
@@ -236,7 +238,7 @@ module ForemanHyperv
       vm.stop turn_off: true
       vm.hard_drives.each { |hdd| hdd.destroy(underlying: true) }
       # TODO: Remove the empty VM folder
-      vm.destroy
+      vm.destroy(vm.path.end_with?(vm.name))
     rescue ActiveRecord::RecordNotFound, Fog::Errors::NotFound
       # if the VM does not exists, we don't really care.
       true
