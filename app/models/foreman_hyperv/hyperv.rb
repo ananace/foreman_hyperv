@@ -127,6 +127,8 @@ module ForemanHyperv
       firmware_type = attr.delete(:firmware_type).to_s
       attr.merge!(process_firmware_attributes(attr[:foreman_firmware], firmware_type)) #, attr[:provision_method]))
       attr.delete :id
+
+      # logger.debug "New VM with arguments;\n#{attr}"
       vm = super
       iface_nested_attrs = nested_attributes_for :interfaces, attr[:interfaces_attributes]
       vm.network_adapters = iface_nested_attrs.map do |attr|
@@ -162,8 +164,7 @@ module ForemanHyperv
       validate_interfaces(attr)
       validate_volumes(attr)
 
-      logger.debug "Creating VM with arguments; #{attr}"
-
+      # logger.debug "Creating VM with arguments; #{attr}"
       vm = client.servers.new(
         name: attr[:name],
         computer_name: attr[:computer_name].presence || hypervisor.name,
@@ -215,7 +216,7 @@ module ForemanHyperv
       validate_volumes(attr)
 
       vm = find_vm_by_uuid(uuid)
-      logger.debug "Updating VM #{vm} with arguments; #{attr}"
+      # logger.debug "Updating VM #{vm} with arguments; #{attr}"
 
       vm.processor_count = attr[:processor_count].to_i
       vm.notes = attr[:notes].presence
