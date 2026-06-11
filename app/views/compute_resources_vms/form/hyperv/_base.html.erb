@@ -14,34 +14,12 @@
     cluster_errors << ex
   end
 -%>
-<% if clusters.any? %>
+<% if clusters.any? -%>
   <%= select_f f, :cluster_name, clusters, :to_s, :to_s, { include_blank: true }, label: _('Cluster'), disabled: !new_host %>
-  <% if computers.count > 1 %>
+  <% if computers.count > 1 -%>
     <%= select_f f, :computer_name, computers, :name, :name, {}, label: _('Computer Name'), disabled: !new_host, onload: 'hypervHostChange(this);', onchange: 'hypervHostChange(this);' %>
   <% end -%>
-<% end %>
-<div class="clearfix">
-  <div class="form-group">
-    <label class="col-md-2 control-label">Available resources</label>
-    <div class="col-md-4 help-block" id="hypervComputerInformation">
-<% computers.each do |host| -%>
-      <table class="hyperv-host-info" style="<%= (host.name == f.object.computer_name) ? '' : 'display: none' %>" data-host="<%= host.name %>">
-        <tbody>
-          <tr>
-            <td>CPU:</td>
-            <td style="padding-left:0.5em;"><%= host.logical_processor_count %></td>
-          </tr>
-          <tr>
-            <td>Memory:</td>
-            <td style="padding-left:0.5em;"><%= number_to_human_size(host.memory_capacity) %></td>
-          </tr>
-        </tbody>
-      </table>
 <% end -%>
-    </div>
-  </div>
-</div>
-
 <% cluster_errors.each do |err| -%>
 <div class="alert alert-warning alert-dismissable">
   <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
@@ -51,10 +29,13 @@
 
 <%
   firmware_type = compute_resource.firmware_type(f.object.foreman_firmware, f.object.secure_boot_enabled)
-%>
+-%>
 <%= field(f, :foreman_firmware, :label => _('Firmware'), :label_help => _("Choose 'Automatic' to set the firmware based on the PXE loader of the host. If no PXE loader is selected, firmware defaults to BIOS."), :label_size => "col-md-2") do
   compute_resource.firmware_types.collect do |type, name|
-    radio_button_f f, :foreman_firmware, { :checked => (firmware_type == type), :disabled => !new_vm, :value => type, :text => _(name) }
+    enabled = new_vm
+    enabled ||= firmware_type != :bios && type.to_s.start_with?('uefi')
+
+    radio_button_f f, :foreman_firmware, { :checked => (firmware_type == type), :disabled => !enabled, :value => type, :text => _(name) }
   end.join(' ').html_safe
 end %>
 <%= checkbox_f f, :tpm_enabled, { help_inline: _('Add Virtual TPM module to the VM.'),
@@ -70,7 +51,7 @@ end %>
 <%= byte_size_f f, :memory_maximum, class: 'col-md-2', label: _('Memory Maximum'), disabled: !f.object.dynamic_memory_enabled %>
 <%= byte_size_f f, :memory_minimum, class: 'col-md-2', label: _('Memory Minimum'), disabled: !f.object.dynamic_memory_enabled %>
 
-<% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' %>
+<% checked = params[:host] && params[:host][:compute_attributes] && params[:host][:compute_attributes][:start] || '1' -%>
 <%= checkbox_f f, :start, { checked: (checked == '1'), help_inline: _("Power ON this machine"), label: _('Start'), label_size: "col-md-2"} if new_host && controller_name != "compute_attributes" %>
 
 <%= textarea_f f, :notes, rows: '3', label: _('Notes') %>
