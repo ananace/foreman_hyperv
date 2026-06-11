@@ -4,6 +4,7 @@
 - Fix lost VM association functionality
 - Fix broken interface list
 - Fix compute profile creation
+- Fix host cloning
 - Clean up VM config files on removal
 
 ## v0.1.1 2026-05-22

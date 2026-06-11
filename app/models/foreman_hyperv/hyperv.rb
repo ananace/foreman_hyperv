@@ -338,7 +338,12 @@ module ForemanHyperv
     end
 
     def vm_compute_attributes(vm)
-      attr = super
+      attr = super.slice(
+        :computer_name, :name, :generation,
+        :dynamic_memory_enabled,
+        :memory_maximum, :memory_minimum, :memory_startup,
+        :notes, :processor_count
+      )
       attr[:foreman_firmware] = vm.foreman_firmware_type
       attr[:tpm_enabled] = vm.tpm_enabled
 
