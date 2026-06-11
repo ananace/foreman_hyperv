@@ -157,15 +157,16 @@ module ForemanHyperv
 
       firmware_type = attr.delete(:firmware_type).to_s
       attr.merge!(process_firmware_attributes(attr[:foreman_firmware], firmware_type)) #, attr[:provision_method]))
-      attr[:tpm_enabled] = attr.delete(:tpm_enabled) == '1' if attr['tpm_enabled'].present?
 
       validate_vm(attr, new: true)
       validate_interfaces(attr)
       validate_volumes(attr)
 
+      logger.debug "Creating VM with arguments; #{attr}"
+
       vm = client.servers.new(
         name: attr[:name],
-        computer_name: attr[:computer_name],
+        computer_name: attr[:computer_name].presence || hypervisor.name,
         generation: attr[:generation],
         dynamic_memory_enabled: Foreman::Cast.to_bool(attr[:dynamic_memory_enabled]),
         memory_startup: attr[:memory_startup].to_i,
@@ -180,10 +181,14 @@ module ForemanHyperv
         path: hypervisor.virtual_machine_path
       )
 
-      if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
-        f = vm.bios
-        f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
-        f.save if f.dirty?
+      if vm.generation == :UEFI
+        vm.secure_boot_enabled = attr[:secure_boot_enabled]
+        if attr[:tpm_enabled] == '1'
+          security = vm.security
+          security.change_key_protector :new
+          security.tpm_enabled = true
+          security.save
+        end
       end
 
       create_interfaces(vm, attr)
@@ -191,24 +196,23 @@ module ForemanHyperv
 
       vm.start if attr[:start] == '1'
       vm
-    rescue StandardError => e
-      if vm
+    rescue StandardError
+      if vm&.persisted?
         vm.stop
         vm.hard_drives.each { |hdd| hdd.destroy(underlying: true) }
         vm.destroy(vm.path.end_with?(vm.name))
       end
 
-      raise e
+      raise
     end
 
     def save_vm(uuid, web_attr)
       attr = web_attr.deep_symbolize_keys
+      attr.delete :start
 
       validate_vm(attr)
       validate_interfaces(attr)
       validate_volumes(attr)
-
-      attr.delete :start
 
       vm = find_vm_by_uuid(uuid)
       logger.debug "Updating VM #{vm} with arguments; #{attr}"
@@ -220,11 +224,20 @@ module ForemanHyperv
         vm.memory_minimum = attr[:memory_minimum].to_i
         vm.memory_maximum = attr[:memory_maximum].to_i
       end
-      # if vm.generation == :UEFI && attr[:secure_boot_enabled].present?
-      #   f = vm.bios
-      #   f.secure_boot = Foreman::Cast.to_bool(attr[:secure_boot_enabled]) ? :On : :Off
-      #   f.save if f.dirty?
-      # end
+      if vm.generation == :UEFI && attr[:tpm_enabled].present?
+        security = vm.security
+        security.tpm_enabled = attr[:tpm_enabled] == '1'
+        if security.tpm_enabled && security.key_protector.nil?
+          security.change_key_protector :new
+        end
+        security.save
+      end
+      if attr[:foreman_firmware].present?
+        firmware_type = attr.delete(:firmware_type).to_s
+        attr.merge!(process_firmware_attributes(attr[:foreman_firmware], firmware_type)) #, attr[:provision_method]))
+
+        vm.secure_boot_enabled = attr[:secure_boot_enabled]
+      end
 
       update_interfaces(vm, attr)
       update_volumes(vm, attr)
@@ -264,8 +277,9 @@ module ForemanHyperv
         end
       end
 
-      deep_update_required = proc do |old, new|
+      deep_update_required = proc do |path, old, new|
         old.merge(new) do |k, old_v, new_v|
+          k_path = path + [k]
           if %i[allowed_vlan_ids secondary_vlan_ids].include?(k)
             tmp = Fog::Hyperv::Compute::NetworkAdapter.new
 
@@ -274,17 +288,17 @@ module ForemanHyperv
           end
 
           if old_v.is_a?(Hash) && new_v.is_a?(Hash)
-            deep_update_required.call(old_v, new_v)
+            deep_update_required.call(k_path, old_v, new_v)
           elsif old_v.to_s != new_v.to_s
             Rails.logger.debug do
-              "Scheduling compute instance update because #{k} changed it's value from '#{old_v}' (#{old_v.class}) to '#{new_v}' (#{new_v.class})"
+              "Scheduling compute instance update because #{k_path.join('.')} changed it's value from '#{old_v}' (#{old_v.class}) to '#{new_v}' (#{new_v.class})"
             end
             return true
           end
           new_v
         end
       end
-      deep_update_required.call(old_attrs.deep_symbolize_keys, new_attrs.deep_symbolize_keys)
+      deep_update_required.call([], old_attrs.deep_symbolize_keys, new_attrs.deep_symbolize_keys)
 
       false
     end
@@ -321,6 +335,14 @@ module ForemanHyperv
         processor_count: 1,
         interfaces: [new_interface]
       )
+    end
+
+    def vm_compute_attributes(vm)
+      attr = super
+      attr[:foreman_firmware] = vm.foreman_firmware_type
+      attr[:tpm_enabled] = vm.tpm_enabled
+
+      attr
     end
 
     def set_vm_volumes_attributes(vm, vm_attrs)
@@ -376,10 +398,10 @@ module ForemanHyperv
     end
 
     def generate_secure_boot_settings(firmware)
-      return {} unless firmware == 'uefi_secure_boot'
+      return {} unless firmware.to_s.include?('efi')
 
       {
-        secure_boot_enabled: true
+        secure_boot_enabled: firmware.to_s.end_with?('secure_boot')
       }
     end
 

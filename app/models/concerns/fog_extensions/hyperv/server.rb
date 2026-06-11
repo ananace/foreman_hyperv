@@ -47,13 +47,14 @@ module FogExtensions
         :NetworkAdapter
       end
 
+      def foreman_firmware_type
+        return 'bios' if generation_num == 1
+
+        secure_boot_enabled ? 'uefi_secure_boot' : 'uefi'
+      end
+
       def foreman_firmware
         generation_num == 1 ? 'bios' : 'efi'
-      end
-      def foreman_firmware=(firmware)
-        raise "Unable to edit firmware after creation" if persisted?
-
-        generation_num = firmware.to_s.start_with?('uefi') ? 2 : 1
       end
 
       def vlan
@@ -82,16 +83,15 @@ module FogExtensions
 
       def secure_boot_enabled=(enabled)
         return if generation != :UEFI
-
-        @secure_boot = enabled
         return unless persisted?
 
         firmware.secure_boot = enabled ? :On : :Off
+        firmware.save
       end
 
       def secure_boot_enabled
         return false if generation != :UEFI
-        return @secure_boot unless persisted?
+        return unless persisted?
 
         firmware.secure_boot == :On
       end
